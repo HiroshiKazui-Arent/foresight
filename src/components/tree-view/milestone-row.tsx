@@ -9,6 +9,7 @@ import { ProgressPill } from '@/components/progress-pill'
 import { StatusPill } from '@/components/status-pill'
 import { DaysPill } from '@/components/days-pill'
 import { GanttBar } from '@/components/gantt/gantt-bar'
+import Link from 'next/link'
 import { InlineEdit } from './inline-edit'
 import { AddRowButton } from './add-row-button'
 import { TaskRow } from './task-row'
@@ -85,13 +86,23 @@ export function MilestoneRow({
           {expanded ? '▼' : '▶'}
         </button>
 
-        {/* マイルストーン名（インライン編集） */}
-        <div className="min-w-0 flex-1">
+        {/* マイルストーン名（インライン編集）+ V2 リンク */}
+        <div className="flex min-w-0 flex-1 items-center gap-1">
           <InlineEdit
             value={milestone.name}
             onSave={(newName) => onUpdateMilestone(milestone.id, newName)}
             className="font-semibold"
           />
+          {mode !== 'input' && (
+            <Link
+              href={`/projects/${projectId}/milestones/${milestone.id}`}
+              className="shrink-0 rounded p-1 text-xs text-gray-400 hover:text-blue-500"
+              aria-label="タイムラインビューで開く"
+              title="タイムラインビュー"
+            >
+              →
+            </Link>
+          )}
         </div>
 
         {/* 進捗情報 */}

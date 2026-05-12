@@ -55,6 +55,7 @@ vi.mock('@/lib/auth', () => ({
   }),
 }))
 
+import { Prisma } from '@prisma/client'
 import {
   acceptInvitation,
   createInvitation,
@@ -115,6 +116,15 @@ describe('createInvitation', () => {
     )
     expect(mockPrisma.invitation.create).not.toHaveBeenCalled()
   })
+
+  it('DB トランザクション失敗時は招待作成エラーをスローする', async () => {
+    mockPrisma.projectMember.findUnique.mockResolvedValue({ projectId: 'proj-1', userId: 'user-1' })
+    mockPrisma.$transaction.mockRejectedValueOnce(new Error('DB_CONN_FAILED'))
+
+    await expect(createInvitation('invite@example.com', 'proj-1')).rejects.toThrow(
+      '招待の作成に失敗しました',
+    )
+  })
 })
 
 describe('revokeInvitation', () => {
@@ -159,6 +169,34 @@ describe('revokeInvitation', () => {
 
     await expect(revokeInvitation('inv-2')).rejects.toThrow('Forbidden')
     expect(mockPrisma.invitation.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('projectId なし + 発行者でない場合は Forbidden (else ブランチ)', async () => {
+    mockPrisma.invitation.findUnique.mockResolvedValue({
+      id: 'inv-3',
+      invitedById: 'other-user',
+      projectId: null, // projectId なし → else { throw Forbidden }
+      status: 'PENDING',
+    })
+
+    await expect(revokeInvitation('inv-3')).rejects.toThrow('Forbidden')
+    expect(mockPrisma.invitation.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('P2025 エラー時は冪等に成功する', async () => {
+    const p2025 = new Prisma.PrismaClientKnownRequestError('Record not found', {
+      code: 'P2025',
+      clientVersion: '5.0.0',
+    })
+    mockPrisma.$transaction.mockRejectedValueOnce(p2025)
+
+    await expect(revokeInvitation('inv-already-accepted')).resolves.toBeUndefined()
+  })
+
+  it('未知のエラー時は招待取り消し失敗エラーをスローする', async () => {
+    mockPrisma.$transaction.mockRejectedValueOnce(new Error('DB_TIMEOUT'))
+
+    await expect(revokeInvitation('inv-err')).rejects.toThrow('招待の取り消しに失敗しました')
   })
 })
 
@@ -220,6 +258,14 @@ describe('getInvitation', () => {
     mockPrisma.invitation.findUnique.mockResolvedValue(null)
 
     const result = await getInvitation('nonexistent_token')
+
+    expect(result).toBeNull()
+  })
+
+  it('DB エラー時は null を返す', async () => {
+    mockPrisma.invitation.findUnique.mockRejectedValueOnce(new Error('DB_ERROR'))
+
+    const result = await getInvitation('any_token')
 
     expect(result).toBeNull()
   })
@@ -379,5 +425,52 @@ describe('acceptInvitation', () => {
 
     expect(result).toHaveProperty('error')
     expect(mockPrisma.$transaction).not.toHaveBeenCalled()
+  })
+
+  it('既存ユーザーが既にメンバーの場合 { error } が返る (P2002)', async () => {
+    const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+      code: 'P2002',
+      clientVersion: '5.0.0',
+    })
+    mockPrisma.$transaction.mockRejectedValueOnce(p2002)
+
+    const result = await acceptInvitation('any_token', 'User', 'password123')
+
+    expect(result).toHaveProperty('error')
+    expect((result as { error: string }).error).toMatch(/すでにプロジェクトのメンバー/)
+  })
+
+  it('未知のエラー時は汎用エラーメッセージが返る', async () => {
+    mockPrisma.$transaction.mockRejectedValueOnce(new Error('INTERNAL'))
+
+    const result = await acceptInvitation('any_token', 'User', 'password123')
+
+    expect(result).toHaveProperty('error')
+    expect((result as { error: string }).error).toMatch(/エラーが発生/)
+  })
+
+  it('CONCURRENT_ACCEPT: 並行処理でトークンが競合した場合は { error } が返る', async () => {
+    mockPrisma.invitation.findUnique.mockResolvedValue({
+      id: 'inv-concurrent',
+      email: 'user@example.com',
+      token: 'concurrent_token',
+      projectId: 'proj-1',
+      invitedById: 'admin-1',
+      status: 'PENDING',
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+    })
+    mockPrisma.user.findUnique.mockResolvedValue(null)
+    mockPrisma.user.create.mockResolvedValue({
+      id: 'new-user-concurrent',
+      email: 'user@example.com',
+      name: 'User',
+    })
+    mockPrisma.projectMember.create.mockResolvedValue({})
+    mockPrisma.invitation.updateMany.mockResolvedValue({ count: 0 }) // 並行処理で先に更新済み
+
+    const result = await acceptInvitation('concurrent_token', 'User', 'password123')
+
+    expect(result).toHaveProperty('error')
+    expect((result as { error: string }).error).toMatch(/すでに処理されています/)
   })
 })

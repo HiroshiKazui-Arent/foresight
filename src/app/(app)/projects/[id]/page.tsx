@@ -21,6 +21,12 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         </div>
         <div className="flex gap-2">
           <Link
+            href={`/projects/${id}/dashboard`}
+            className="inline-flex items-center justify-center rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600"
+          >
+            予兆検知
+          </Link>
+          <Link
             href={`/projects/${id}/daily`}
             className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
           >
