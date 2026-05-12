@@ -6,7 +6,6 @@ export type TimelineTodo = {
   name: string
   startDate: Date
   endDate: Date
-  actualPct: number
   completed: boolean
   progressData: ProgressBarData
 }

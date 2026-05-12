@@ -108,16 +108,10 @@ function TodoCard({ todo }: { todo: TodoForecast }) {
       <div className="mb-1 flex items-center gap-2">
         <span className="font-semibold text-gray-800">ToDo</span>
         <StatusPill status={todo.status} />
+        <span className="text-sm text-gray-600">{todo.completed ? '✓ 完了' : '未完了'}</span>
       </div>
       <p className="mb-2 font-bold">{todo.name}</p>
-      <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
-        <ProgressPill actualPct={todo.actualPct} scheduledPct={todo.scheduledPct} />
-        <DaysPill days={todo.daysDeviation} />
-        <span>完了予測: {formatDate(todo.completionDate)}</span>
-        {todo.slipDays > 0 && (
-          <span className="font-medium text-red-600">+{Math.ceil(todo.slipDays)}日スリップ</span>
-        )}
-      </div>
+      <div className="text-sm text-gray-600">期日: {formatDate(todo.endDate)}</div>
       {todo.recommendation && (
         <div className="mt-2 rounded bg-white/60 px-3 py-1 text-sm text-gray-700">
           {todo.recommendation}

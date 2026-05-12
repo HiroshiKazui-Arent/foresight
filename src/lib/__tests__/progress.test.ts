@@ -4,6 +4,7 @@ import {
   calcScheduledPct,
   calcDaysDeviation,
   calcStatus,
+  calcTodoStatus,
   calcTaskActualPct,
   calcMilestoneActualPct,
   calcProjectActualPct,
@@ -15,6 +16,12 @@ describe('redistributeWeights', () => {
   })
   it('均等割り - 4件', () => {
     expect(redistributeWeights(4)).toEqual([25, 25, 25, 25])
+  })
+  it('均等割り - 6件 (TodoTemplate デフォルト件数)', () => {
+    expect(redistributeWeights(6)).toEqual([16, 16, 16, 16, 16, 20])
+  })
+  it('均等割り - 7件 (端数 2 が最後に寄る)', () => {
+    expect(redistributeWeights(7)).toEqual([14, 14, 14, 14, 14, 14, 16])
   })
   it('空配列', () => {
     expect(redistributeWeights(0)).toEqual([])
@@ -75,7 +82,7 @@ describe('calcDaysDeviation', () => {
   })
 })
 
-describe('calcStatus', () => {
+describe('calcStatus (Task/Milestone/Project レベル)', () => {
   it('actualPct=100 → completed', () => {
     expect(calcStatus(100, 80)).toBe('completed')
   })
@@ -103,38 +110,92 @@ describe('calcStatus', () => {
   })
 })
 
-describe('calcTaskActualPct', () => {
+describe('calcTodoStatus (M-01: ToDo 4 段階)', () => {
+  const start = new Date('2026-01-01')
+  const end = new Date('2026-01-31')
+
+  it('completed=true → completed (期日や日付に関わらず)', () => {
+    const past = new Date('2026-03-01')
+    expect(calcTodoStatus(true, start, end, past)).toBe('completed')
+    expect(calcTodoStatus(true, start, end, start)).toBe('completed')
+  })
+
+  it('未完了 + 期日超過 → delayed', () => {
+    const past = new Date('2026-02-15')
+    expect(calcTodoStatus(false, start, end, past)).toBe('delayed')
+  })
+
+  it('未完了 + 期日3日以内 → delayed', () => {
+    const nearDeadline = new Date('2026-01-29') // 期日 01-31 まで 2 日
+    expect(calcTodoStatus(false, start, end, nearDeadline)).toBe('delayed')
+  })
+
+  it('未完了 + 開始前 → scheduled', () => {
+    const before = new Date('2025-12-15')
+    expect(calcTodoStatus(false, start, end, before)).toBe('scheduled')
+  })
+
+  it('未完了 + 進行中(余裕あり) → on-track', () => {
+    const inProgress = new Date('2026-01-15') // 期日まで 16 日
+    expect(calcTodoStatus(false, start, end, inProgress)).toBe('on-track')
+  })
+
+  it('警告 (warning) ステータスは ToDo レベルでは持たない', () => {
+    // どの入力組み合わせでも 'warning' は返さない
+    const cases: [boolean, Date][] = [
+      [false, new Date('2026-01-15')],
+      [false, new Date('2026-01-30')],
+      [false, new Date('2026-02-15')],
+      [true, new Date('2026-01-15')],
+    ]
+    for (const [completed, today] of cases) {
+      expect(calcTodoStatus(completed, start, end, today)).not.toBe('warning')
+    }
+  })
+})
+
+describe('calcTaskActualPct (M-01: completed ベース)', () => {
   it('空配列は0', () => {
     expect(calcTaskActualPct([])).toBe(0)
   })
   it('全 ToDo の weight が 0 のとき 0 を返す', () => {
-    expect(calcTaskActualPct([{ actualPct: 80, weight: 0 }])).toBe(0)
+    expect(calcTaskActualPct([{ completed: true, weight: 0 }])).toBe(0)
   })
-
-  it('単一ToDoは自身のpctをそのまま返す', () => {
-    expect(calcTaskActualPct([{ actualPct: 75, weight: 100 }])).toBe(75)
+  it('単一 ToDo - completed=true で 100', () => {
+    expect(calcTaskActualPct([{ completed: true, weight: 100 }])).toBe(100)
   })
-  it('均等重みの重み付き平均', () => {
+  it('単一 ToDo - completed=false で 0', () => {
+    expect(calcTaskActualPct([{ completed: false, weight: 100 }])).toBe(0)
+  })
+  it('均等重み: 1/2 完了で 50%', () => {
     const todos = [
-      { actualPct: 100, weight: 50 },
-      { actualPct: 0, weight: 50 },
+      { completed: true, weight: 50 },
+      { completed: false, weight: 50 },
     ]
     expect(calcTaskActualPct(todos)).toBe(50)
   })
-  it('不均等重みの重み付き平均', () => {
+  it('不均等重み: 重い側完了で 75%', () => {
     const todos = [
-      { actualPct: 100, weight: 75 },
-      { actualPct: 0, weight: 25 },
+      { completed: true, weight: 75 },
+      { completed: false, weight: 25 },
     ]
     expect(calcTaskActualPct(todos)).toBe(75)
   })
-  it('全ToDo完了は100', () => {
+  it('全 ToDo 完了は 100', () => {
     const todos = [
-      { actualPct: 100, weight: 33 },
-      { actualPct: 100, weight: 33 },
-      { actualPct: 100, weight: 34 },
+      { completed: true, weight: 33 },
+      { completed: true, weight: 33 },
+      { completed: true, weight: 34 },
     ]
     expect(calcTaskActualPct(todos)).toBe(100)
+  })
+  it('totalWeight が 100 でないフィクスチャでも正規化される', () => {
+    // weight 合計 = 150。50 完了 → 50/150 × 100 = 33.33...
+    const todos = [
+      { completed: true, weight: 50 },
+      { completed: false, weight: 100 },
+    ]
+    expect(calcTaskActualPct(todos)).toBeCloseTo(33.333, 2)
   })
 })
 

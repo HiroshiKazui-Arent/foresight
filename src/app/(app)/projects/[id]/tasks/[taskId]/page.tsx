@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getProject } from '@/server/actions/project'
 import { buildTaskProgressData } from '@/components/tree-view/progress-utils'
-import { calcScheduledPct, calcStatus, calcDaysDeviation } from '@/lib/progress'
+import { calcScheduledPct, calcTodoStatus, calcDaysDeviation } from '@/lib/progress'
 import { TaskDetailView } from '@/components/task-detail/task-detail-view'
 import type { TaskWithDetail, TodoWithProgress } from '@/types/task-detail'
 
@@ -45,13 +45,14 @@ export default async function TaskDetailPage({
     milestoneId: milestone.id,
   }
 
-  // 各 ToDo の進捗計算
+  // 各 ToDo の進捗計算(M-01: completed の二値に基づき actualPct を 0/100 に対応)
   const todosWithProgress: TodoWithProgress[] = task.todos.map((todo) => {
+    const todoActualPct = todo.completed ? 100 : 0
     const todoDurationDays =
       (todo.endDate.getTime() - todo.startDate.getTime()) / (1000 * 60 * 60 * 24)
     const scheduledPct = calcScheduledPct(todo.startDate, todo.endDate, today)
-    const status = calcStatus(todo.actualPct, scheduledPct)
-    const daysDeviation = calcDaysDeviation(todo.actualPct, scheduledPct, todoDurationDays)
+    const status = calcTodoStatus(todo.completed, todo.startDate, todo.endDate, today)
+    const daysDeviation = calcDaysDeviation(todoActualPct, scheduledPct, todoDurationDays)
 
     return {
       id: todo.id,
@@ -59,10 +60,9 @@ export default async function TaskDetailPage({
       startDate: todo.startDate,
       endDate: todo.endDate,
       weight: todo.weight,
-      actualPct: todo.actualPct,
       completed: todo.completed,
       progressData: {
-        actualPct: todo.actualPct,
+        actualPct: todoActualPct,
         scheduledPct,
         status,
         daysDeviation,

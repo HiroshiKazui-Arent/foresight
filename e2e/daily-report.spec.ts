@@ -8,7 +8,7 @@ async function navigateToDailyReport(page: Page) {
   await page.waitForURL(/\/projects\/[a-z0-9]+\/daily$/)
 }
 
-test.describe('日報入力', () => {
+test.describe('日報入力 (M-01: チェックボックスのみ)', () => {
   test('プロジェクト詳細に「日報入力」ボタンが表示される', async ({ page }) => {
     await page.goto('/projects')
     await page.getByText('フォーサイト開発プロジェクト(サンプル)').click()
@@ -36,14 +36,29 @@ test.describe('日報入力', () => {
     ).toBeVisible()
   })
 
-  test('各 ToDo に進捗入力フォームと「保存」ボタンが表示される', async ({ page }) => {
+  test('完了済み件数サマリが表示される', async ({ page }) => {
     await navigateToDailyReport(page)
 
-    // input モードでは TodoInputRow が各 ToDo を描画し「保存」ボタンが並ぶ
-    const saveButtons = page.getByRole('button', { name: '保存' })
-    await expect(saveButtons.first()).toBeVisible()
-    const count = await saveButtons.count()
+    await expect(page.getByLabel('完了済み件数')).toBeVisible()
+  })
+
+  test('各 ToDo に完了チェックボックスが表示される', async ({ page }) => {
+    await navigateToDailyReport(page)
+
+    const checkboxes = page.getByRole('checkbox', { name: '完了' })
+    await expect(checkboxes.first()).toBeVisible()
+    const count = await checkboxes.count()
     expect(count).toBeGreaterThan(0)
+  })
+
+  test('進捗% スライダー / 数値入力欄は表示されない (M-01)', async ({ page }) => {
+    await navigateToDailyReport(page)
+
+    // 進捗% の数値入力欄や range スライダーが存在しないことを確認
+    const numberInputs = page.locator('input[type="number"]')
+    const rangeInputs = page.locator('input[type="range"]')
+    await expect(numberInputs).toHaveCount(0)
+    await expect(rangeInputs).toHaveCount(0)
   })
 
   test('シードデータの ToDo 名が表示される', async ({ page }) => {
@@ -53,15 +68,15 @@ test.describe('日報入力', () => {
     await expect(page.getByText('機能一覧作成')).toBeVisible()
   })
 
-  test('「保存」ボタンで日報を提出すると「保存済み ✓」が表示される', async ({ page }) => {
+  test('チェックボックス ON で「✓」フィードバックが表示される', async ({ page }) => {
     await navigateToDailyReport(page)
 
-    // 最初の保存ボタンをクリックして保存フィードバックを確認
-    const firstSave = page.getByRole('button', { name: '保存' }).first()
-    await firstSave.click()
+    const firstCheckbox = page.getByRole('checkbox', { name: '完了' }).first()
+    const wasChecked = await firstCheckbox.isChecked()
+    await firstCheckbox.click()
 
-    // 保存完了のフィードバック (2 秒間表示)
-    await expect(page.getByText('保存済み ✓').first()).toBeVisible()
+    // 状態が反転する
+    await expect(firstCheckbox).toBeChecked({ checked: !wasChecked })
   })
 
   test('「← プロジェクトへ戻る」リンクでプロジェクト詳細に戻れる', async ({ page }) => {

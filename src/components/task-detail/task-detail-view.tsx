@@ -289,7 +289,7 @@ export function TaskDetailView({ task, todos, projectId, today }: Props) {
                 )}
                 <div className="flex shrink-0 items-center gap-1">
                   <ProgressPill
-                    actualPct={todo.actualPct}
+                    actualPct={todo.progressData.actualPct}
                     scheduledPct={todo.progressData.scheduledPct}
                   />
                   <StatusPill status={todo.progressData.status} />
@@ -385,7 +385,7 @@ export function TaskDetailView({ task, todos, projectId, today }: Props) {
                   style={{ marginLeft: `${offsetPct}%`, width: `${widthPct}%` }}
                 >
                   <GanttBar
-                    actualPct={todo.actualPct}
+                    actualPct={todo.progressData.actualPct}
                     scheduledPct={todo.progressData.scheduledPct}
                     status={todo.progressData.status}
                   />
