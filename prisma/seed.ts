@@ -25,6 +25,25 @@ async function main() {
   })
 
   // ──────────────────────────────────────────────
+  // TodoTemplate: Task 作成時に自動展開される 6 件(M-02)
+  // ──────────────────────────────────────────────
+  const todoTemplates = [
+    { name: '画面設計', order: 1 },
+    { name: 'データベース設計', order: 2 },
+    { name: 'バックエンド開発', order: 3 },
+    { name: 'フロントエンド開発', order: 4 },
+    { name: 'テストコードの実装', order: 5 },
+    { name: 'テスト・レビュー', order: 6 },
+  ]
+  for (const t of todoTemplates) {
+    await prisma.todoTemplate.upsert({
+      where: { id: `seed-tpl-${t.order}` },
+      update: { name: t.name, order: t.order },
+      create: { id: `seed-tpl-${t.order}`, name: t.name, order: t.order },
+    })
+  }
+
+  // ──────────────────────────────────────────────
   // テスト用プロジェクト: 全60日(30日前〜30日後)
   // ──────────────────────────────────────────────
   const today = new Date()
@@ -93,7 +112,6 @@ async function main() {
         taskId: task1_1.id,
         name: '利用者インタビュー',
         weight: 33,
-        actualPct: 100,
         completed: true,
         startDate: ms1Start,
         endDate: addDays(ms1Start, 5),
@@ -105,7 +123,6 @@ async function main() {
         taskId: task1_1.id,
         name: 'ペルソナ定義',
         weight: 33,
-        actualPct: 100,
         completed: true,
         startDate: addDays(ms1Start, 5),
         endDate: addDays(ms1Start, 10),
@@ -117,7 +134,6 @@ async function main() {
         taskId: task1_1.id,
         name: 'ユースケース整理',
         weight: 34,
-        actualPct: 60,
         completed: false,
         startDate: addDays(ms1Start, 10),
         endDate: addDays(ms1Start, 15),
@@ -133,7 +149,6 @@ async function main() {
         taskId: task1_2.id,
         name: '機能一覧作成',
         weight: 33,
-        actualPct: 80,
         completed: false,
         startDate: addDays(ms1Start, 15),
         endDate: addDays(ms1Start, 20),
@@ -145,7 +160,6 @@ async function main() {
         taskId: task1_2.id,
         name: '画面設計書(ワイヤーフレーム)',
         weight: 33,
-        actualPct: 30,
         completed: false,
         startDate: addDays(ms1Start, 20),
         endDate: addDays(ms1Start, 25),
@@ -157,7 +171,6 @@ async function main() {
         taskId: task1_2.id,
         name: 'レビュー・承認',
         weight: 34,
-        actualPct: 0,
         completed: false,
         startDate: addDays(ms1Start, 25),
         endDate: ms1End,
@@ -173,7 +186,6 @@ async function main() {
       todoId: t1_1_todos[0].id,
       reportedBy: admin.id,
       date: yesterday,
-      actualPct: 100,
       completed: true,
       comment: '予定通り完了',
     },
@@ -183,7 +195,6 @@ async function main() {
       todoId: t1_1_todos[1].id,
       reportedBy: admin.id,
       date: yesterday,
-      actualPct: 100,
       completed: true,
     },
   })
@@ -192,7 +203,6 @@ async function main() {
       todoId: t1_1_todos[2].id,
       reportedBy: pm.id,
       date: today,
-      actualPct: 60,
       completed: false,
       comment: '残り40%、明日完了予定',
     },
@@ -235,7 +245,6 @@ async function main() {
         taskId: task2_1.id,
         name: 'API設計',
         weight: 50,
-        actualPct: 0,
         completed: false,
         startDate: ms2Start,
         endDate: addDays(ms2Start, 7),
@@ -247,7 +256,6 @@ async function main() {
         taskId: task2_1.id,
         name: 'API実装',
         weight: 50,
-        actualPct: 0,
         completed: false,
         startDate: addDays(ms2Start, 7),
         endDate: addDays(ms2Start, 15),
@@ -259,7 +267,6 @@ async function main() {
         taskId: task2_2.id,
         name: 'UI実装',
         weight: 50,
-        actualPct: 0,
         completed: false,
         startDate: addDays(ms2Start, 15),
         endDate: addDays(ms2Start, 22),
@@ -271,7 +278,6 @@ async function main() {
         taskId: task2_2.id,
         name: '結合テスト',
         weight: 50,
-        actualPct: 0,
         completed: false,
         startDate: addDays(ms2Start, 22),
         endDate: ms2End,

@@ -26,9 +26,9 @@ export async function createTodo(
   startDate: Date,
   endDate: Date,
 ): Promise<Todo> {
+  await requireProjectMember(projectId)
   validateName(name)
   validateDates(startDate, endDate)
-  await requireProjectMember(projectId)
 
   const todo = await prisma.$transaction(async (tx) => {
     const task = await tx.task.findFirst({ where: { id: taskId, milestone: { projectId } } })
@@ -54,7 +54,7 @@ export async function createTodo(
     return { ...created, weight: weights[newIndex] }
   })
 
-  revalidatePath('/projects/' + projectId)
+  revalidatePath('/projects/' + projectId, 'layout')
   return todo
 }
 
@@ -63,20 +63,26 @@ export async function updateTodo(
   projectId: string,
   data: { name?: string; startDate?: Date; endDate?: Date },
 ): Promise<Todo> {
-  if (data.name !== undefined) validateName(data.name)
   await requireProjectMember(projectId)
+  if (data.name !== undefined) validateName(data.name)
 
-  const existing = await prisma.todo.findFirst({
-    where: { id, task: { milestone: { projectId } } },
+  const todo = await prisma.$transaction(async (tx) => {
+    const existing = await tx.todo.findFirst({
+      where: { id, task: { milestone: { projectId } } },
+    })
+    if (!existing) notFound()
+
+    if (data.startDate !== undefined || data.endDate !== undefined) {
+      validateDates(data.startDate ?? existing.startDate, data.endDate ?? existing.endDate)
+    }
+
+    return tx.todo.update({
+      where: { id },
+      data: { ...data, name: data.name?.trim() },
+    })
   })
-  if (!existing) notFound()
 
-  const todo = await prisma.todo.update({
-    where: { id },
-    data: { ...data, name: data.name?.trim() },
-  })
-
-  revalidatePath('/projects/' + projectId)
+  revalidatePath('/projects/' + projectId, 'layout')
   return todo
 }
 
@@ -106,5 +112,5 @@ export async function deleteTodo(id: string, projectId: string): Promise<void> {
     )
   })
 
-  revalidatePath('/projects/' + projectId)
+  revalidatePath('/projects/' + projectId, 'layout')
 }
