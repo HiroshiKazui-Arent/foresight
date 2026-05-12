@@ -27,7 +27,8 @@ export default function LoginPage() {
     if (result?.error) {
       setError('メールアドレスまたはパスワードが正しくありません')
     } else {
-      router.push('/projects')
+      router.push('/')
+      router.refresh()
     }
   }
 

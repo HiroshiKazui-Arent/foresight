@@ -13,31 +13,31 @@
 
 ### 0.2 v3.0 改訂サマリ(v2.1 からの差分)
 
-| 区分               | 内容                                                                                                     |
-| ------------------ | -------------------------------------------------------------------------------------------------------- |
-| 認証               | **Google OAuth を廃止**、Auth.js v5 + Credentials Provider(メール+パスワード)に変更。bcrypt でハッシュ化 |
-| 招待制             | 維持。ただし招待リンクからパスワード設定画面へ誘導する形に変更                                           |
-| 利用者数           | 当面2名(本人 + PM)で運用                                                                                 |
-| 本番環境           | **AWS ECS Fargate + RDS for PostgreSQL + ALB + VPC**                                                     |
-| IaC                | **Terraform** で AWS リソースを管理                                                                      |
-| デプロイタイミング | Phase 3 完了後に Phase 4 としてまとめてデプロイ                                                          |
-| 削除               | 「社内インフラ部門との連携」「社内サーバー」関連の記述を全削除                                           |
+| 区分 | 内容 |
+|---|---|
+| 認証 | **Google OAuth を廃止**、Auth.js v5 + Credentials Provider(メール+パスワード)に変更。bcrypt でハッシュ化 |
+| 招待制 | 維持。ただし招待リンクからパスワード設定画面へ誘導する形に変更 |
+| 利用者数 | 当面2名(本人 + PM)で運用 |
+| 本番環境 | **AWS ECS Fargate + RDS for PostgreSQL + ALB + VPC** |
+| IaC | **Terraform** で AWS リソースを管理 |
+| デプロイタイミング | Phase 3 完了後に Phase 4 としてまとめてデプロイ |
+| 削除 | 「社内インフラ部門との連携」「社内サーバー」関連の記述を全削除 |
 
 ### 0.3 学習要素(主目的)
 
 本プロジェクトを通じてキャッチアップする技術領域:
 
-| 領域               | 技術                                                                   |
-| ------------------ | ---------------------------------------------------------------------- |
-| AI 駆動開発        | Claude Code, ECC(everything-claude-code), Blueprint スキル等           |
+| 領域 | 技術 |
+|---|---|
+| AI 駆動開発 | Claude Code, ECC(everything-claude-code), Blueprint スキル等 |
 | Web フロントエンド | Next.js 15 (App Router) + React 19 + TypeScript + Tailwind + shadcn/ui |
-| バックエンド       | Next.js Server Actions, Prisma ORM                                     |
-| 認証               | Auth.js v5 (Credentials Provider)                                      |
-| データベース       | PostgreSQL 16, Prisma Migrate                                          |
-| コンテナ           | Docker, Docker Compose                                                 |
-| CI/CD              | GitHub Actions                                                         |
-| クラウド           | AWS (ECS Fargate, RDS, ALB, VPC, ECR, Route53)                         |
-| IaC                | Terraform                                                              |
+| バックエンド | Next.js Server Actions, Prisma ORM |
+| 認証 | Auth.js v5 (Credentials Provider) |
+| データベース | PostgreSQL 16, Prisma Migrate |
+| コンテナ | Docker, Docker Compose |
+| CI/CD | GitHub Actions |
+| クラウド | AWS (ECS Fargate, RDS, ALB, VPC, ECR, Route53) |
+| IaC | Terraform |
 
 ---
 
@@ -81,7 +81,6 @@
 ### 2.2 1本の今日線で全てを語る
 
 ガントチャート上で、今日線は以下の3役を兼ねる:
-
 - 「現在の日付」
 - 「各バー上の予定%位置」(時間軸上の位置と完全に一致)
 - 「実績との境界」
@@ -113,10 +112,10 @@ Project (プロジェクト全体)
 
 ### 3.2 階層ごとの責務
 
-| 階層                       | 進捗の決まり方                                  |
-| -------------------------- | ----------------------------------------------- |
-| ToDo                       | 完了チェックボックスのみで二値表現(v3.1 / M-01) |
-| Task / Milestone / Project | 配下の重み付き合計から自動算出                  |
+| 階層 | 進捗の決まり方 |
+|---|---|
+| ToDo | 人が直接入力(進捗% or 完了チェック) |
+| Task / Milestone / Project | 配下の重み付き合計から自動算出 |
 
 ### 3.3 ToDo の重み
 
@@ -134,15 +133,14 @@ Project (プロジェクト全体)
 予定進捗% = (今日 - 開始日) / (期日 - 開始日) × 100
 ```
 
-### 4.2 重み付き集計(v3.1 / M-01)
+### 4.2 重み付き集計
 
 ```
-Task実績% = Σ(completed=true の ToDo の重み) / Σ(全 ToDo の重み) × 100
+Task実績% = Σ(各ToDoの実績% × ToDoの重み) / 100
 Milestone実績% = Σ(各Taskの実績% × Taskの重み) / Σ(重み)
 Project実績% = Σ(各Milestoneの実績% × Milestoneの重み) / Σ(重み)
 ```
 
-ToDo は `completed: boolean` の二値のみ。Task 以上は配下の集計値に対する加重平均。
 Task/Milestone レベルの重みは期間日数を使用。
 
 ### 4.3 乖離と遅れ日数
@@ -152,26 +150,15 @@ Task/Milestone レベルの重みは期間日数を使用。
 遅れ日数 = (予定% - 実績%) × 全期間日数 / 100
 ```
 
-### 4.4 ステータス自動判定
+### 4.4 ステータス自動判定(5段階)
 
-#### Task / Milestone / Project — 5段階(従来通り)
-
-| ステータス | アイコン | 条件                      | 色     |
-| ---------- | -------- | ------------------------- | ------ |
-| 完了       | ✓        | 進捗 = 100%               | 緑(濃) |
-| 進行中     | ▶        | 進行中かつ実績 ≥ 予定     | 緑(淡) |
-| 遅延       | ⏱        | 進行中で -20% < 乖離 < 0% | 黄     |
-| 警告       | ⚠        | 進行中で 乖離 ≤ -20%      | 赤     |
-| 予定       | ○        | 未着手かつ予定通り        | グレー |
-
-#### ToDo — 4段階(v3.1 / M-01 で簡素化、警告は持たない)
-
-| ステータス | 条件                                                      |
-| ---------- | --------------------------------------------------------- |
-| 完了       | `completed: true`                                         |
-| 遅延       | `completed: false` AND 期日まで 3 日未満(期日超過含む)    |
-| 進行中     | `completed: false` AND 期間内(開始日 ≤ 今日 < 期日 - 3日) |
-| 予定       | `completed: false` AND 開始日 > 今日                      |
+| ステータス | アイコン | 条件 | 色 |
+|---|---|---|---|
+| 完了 | ✓ | 進捗 = 100% | 緑(濃) |
+| 進行中 | ▶ | 進行中かつ実績 ≥ 予定 | 緑(淡) |
+| 遅延 | ⏱ | 進行中で -20% < 乖離 < 0% | 黄 |
+| 警告 | ⚠ | 進行中で 乖離 ≤ -20% | 赤 |
+| 予定 | ○ | 未着手かつ予定通り | グレー |
 
 ### 4.5 完了予測日
 
@@ -191,37 +178,37 @@ ToDo の遅延 → Task の完了予測日のスリップ → Milestone の完�
 
 #### 管理系(Admin/Auth)
 
-| #   | 画面名                  | 目的                                          |
-| --- | ----------------------- | --------------------------------------------- |
-| A1  | ログイン画面            | メール + パスワードでサインイン               |
-| A2  | 招待受諾画面            | 招待リンクから初回パスワード設定 + サインイン |
-| A3  | プロジェクト一覧 / 切替 | 自分が参加するプロジェクトを選ぶ              |
-| A4  | プロジェクト設定        | プロジェクト名/期間の編集、メンバー管理、削除 |
-| A5  | ユーザー管理(全体)      | 全ユーザー一覧、招待発行、招待取り消し        |
+| # | 画面名 | 目的 |
+|---|---|---|
+| A1 | ログイン画面 | メール + パスワードでサインイン |
+| A2 | 招待受諾画面 | 招待リンクから初回パスワード設定 + サインイン |
+| A3 | プロジェクト一覧 / 切替 | 自分が参加するプロジェクトを選ぶ |
+| A4 | プロジェクト設定 | プロジェクト名/期間の編集、メンバー管理、削除 |
+| A5 | ユーザー管理(全体) | 全ユーザー一覧、招待発行、招待取り消し |
 
 #### 閲覧系(View)
 
-| #   | 画面名                 | 目的                                  |
-| --- | ---------------------- | ------------------------------------- |
-| V1  | ツリービュー           | Project全体を一望 + 登録/編集の主戦場 |
-| V2  | タイムラインビュー     | 特定Milestoneにズーム                 |
-| V3  | タスク詳細             | 特定Taskを開きToDoを時間軸で展開      |
-| V4  | 予兆検知ダッシュボード | 遅延の連鎖を可視化                    |
+| # | 画面名 | 目的 |
+|---|---|---|
+| V1 | ツリービュー | Project全体を一望 + 登録/編集の主戦場 |
+| V2 | タイムラインビュー | 特定Milestoneにズーム |
+| V3 | タスク詳細 | 特定Taskを開きToDoを時間軸で展開 |
+| V4 | 予兆検知ダッシュボード | 遅延の連鎖を可視化 |
 
 #### 入力系(Input)
 
-| #   | 画面名   | 目的                            |
-| --- | -------- | ------------------------------- |
-| I1  | 日報入力 | ToDoの完了チェック(v3.1 / M-01) |
+| # | 画面名 | 目的 |
+|---|---|---|
+| I1 | 日報入力 | ToDoの進捗%を入力 |
 
 ### 5.2 共通デザインルール
 
 統一されたガントバー視覚言語(バー + 今日線 + ピル + アイコン)を全画面で使用。
 
-| 列       | 内容                 | 表示例          |
-| -------- | -------------------- | --------------- |
-| 進捗ピル | 実績% / 予定%        | `44% / 83%`     |
-| 状態ピル | 5段階のステータス    | `警告`          |
+| 列 | 内容 | 表示例 |
+|---|---|---|
+| 進捗ピル | 実績% / 予定% | `44% / 83%` |
+| 状態ピル | 5段階のステータス | `警告` |
 | 日数ピル | 遅れ/前倒し日数(+/-) | `-9日` / `+1日` |
 
 ### 5.3 各画面の詳細
@@ -236,8 +223,8 @@ ToDo の遅延 → Task の完了予測日のスリップ → Milestone の完�
 - **V1 ツリービュー**: Project→Milestone→Task の階層インデント、`+` ボタンで追加、インライン編集、ドラッグ&ドロップで並び替え
 - **V2 タイムラインビュー**: V1 と同レイアウト、表示範囲を Milestone 単位にズーム
 - **V3 タスク詳細**: Task 全体行 + 配下 ToDo を期間バーで表示、ToDo の CRUD
-- **V4 予兆検知ダッシュボード**: ToDo → Task → Milestone → Project の連鎖を縦に並べ、矢印で連結。ToDo 段階の連鎖根元は**期日超過/期日まで 3 日未満**の未完了 ToDo を表示(v3.1 / M-01 で actualPct 廃止に伴い date-based 判定)
-- **I1 日報入力**: V1 レイアウト + 右端に**完了チェックボックス列**(v3.1 / M-01)。進捗% 入力欄は廃止
+- **V4 予兆検知ダッシュボード**: ToDo → Task → Milestone → Project の連鎖を縦に並べ、矢印で連結
+- **I1 日報入力**: V1 レイアウト + 右端に入力欄列(進捗% or 完了チェック)
 
 ---
 
@@ -347,11 +334,11 @@ services:
       POSTGRES_PASSWORD: foresight_dev
       POSTGRES_DB: foresight
     ports:
-      - '5432:5432'
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U foresight']
+      test: ["CMD-SHELL", "pg_isready -U foresight"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -363,9 +350,9 @@ services:
     environment:
       DATABASE_URL: postgresql://foresight:foresight_dev@postgres:5432/foresight
       AUTH_SECRET: ${AUTH_SECRET}
-      AUTH_TRUST_HOST: 'true'
+      AUTH_TRUST_HOST: "true"
     ports:
-      - '3000:3000'
+      - "3000:3000"
     volumes:
       - .:/app
       - /app/node_modules
@@ -524,7 +511,8 @@ model Todo {
   task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   name        String
   weight      Int      // UIからは入力不可、均等割り
-  completed   Boolean  @default(false)  // v3.1 / M-01: actualPct 廃止、completed のみで進捗表現
+  actualPct   Int      @default(0)
+  completed   Boolean  @default(false)
   startDate   DateTime
   endDate     DateTime
   order       Int
@@ -535,17 +523,6 @@ model Todo {
   @@index([taskId, order])
 }
 
-// v3.1 / M-02: Task 作成時に自動展開されるテンプレート
-model TodoTemplate {
-  id        String   @id @default(cuid())
-  name      String
-  order     Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([order])
-}
-
 model DailyReport {
   id          String   @id @default(cuid())
   todoId      String
@@ -553,7 +530,8 @@ model DailyReport {
   reportedBy  String
   user        User     @relation(fields: [reportedBy], references: [id])
   date        DateTime
-  completed   Boolean  // v3.1 / M-01: actualPct 廃止
+  actualPct   Int
+  completed   Boolean
   comment     String?
   createdAt   DateTime @default(now())
 
@@ -585,14 +563,14 @@ model DailyReport {
 
 ```typescript
 function redistributeWeights(todos: Todo[]): Todo[] {
-  const n = todos.length
-  if (n === 0) return []
-  const base = Math.floor(100 / n)
-  const remainder = 100 - base * n
+  const n = todos.length;
+  if (n === 0) return [];
+  const base = Math.floor(100 / n);
+  const remainder = 100 - base * n;
   return todos.map((t, i) => ({
     ...t,
     weight: i === n - 1 ? base + remainder : base,
-  }))
+  }));
 }
 ```
 
@@ -643,7 +621,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://foresight:foresight_test@localhost:5432/foresight_test
           AUTH_SECRET: test_secret
-          AUTH_TRUST_HOST: 'true'
+          AUTH_TRUST_HOST: "true"
 ```
 
 ### 6.9 AWS インフラ構成(Phase 4 で構築)
@@ -699,11 +677,11 @@ infra/terraform/
 
 ### 6.11 シークレット管理
 
-| シークレット   | 保管先                 | 設定方法                                              |
-| -------------- | ---------------------- | ----------------------------------------------------- |
-| `DATABASE_URL` | AWS Secrets Manager    | RDS 作成時に生成、ECS Task Definition から参照        |
-| `AUTH_SECRET`  | AWS Secrets Manager    | Terraform で `random_password` 生成                   |
-| AWS 認証情報   | GitHub Actions Secrets | OIDC 連携(`aws-actions/configure-aws-credentials@v4`) |
+| シークレット | 保管先 | 設定方法 |
+|---|---|---|
+| `DATABASE_URL` | AWS Secrets Manager | RDS 作成時に生成、ECS Task Definition から参照 |
+| `AUTH_SECRET` | AWS Secrets Manager | Terraform で `random_password` 生成 |
+| AWS 認証情報 | GitHub Actions Secrets | OIDC 連携(`aws-actions/configure-aws-credentials@v4`)|
 
 ローカル開発では `.env.local`(gitignore 対象)で管理。
 
@@ -713,75 +691,75 @@ infra/terraform/
 
 ### 7.1 段階的リリース
 
-| フェーズ              | 内容                                                                   | 価値                             | 期間目安 |
-| --------------------- | ---------------------------------------------------------------------- | -------------------------------- | -------- |
-| **Phase 0**           | ローカル開発環境整備(Docker / DB / Auth / CI)                          | 開発を始められる土台             | 1-2日    |
-| **Phase 1**           | 認証 + 最低限の閲覧/入力(A1〜A5 + V1 + I1)                             | ログインして登録・進捗入力できる | 6-8日    |
-| **Phase 2**           | V2(タイムライン) + V3(タスク詳細)                                      | ズームと詳細閲覧                 | 2-3日    |
-| **Phase 3**           | V4(予兆検知ダッシュボード)                                             | 予兆検知が完成                   | 2日      |
-| **Phase 4**           | AWS デプロイ(Terraform + ECS Fargate + RDS)                            | 本番稼働                         | 3-5日    |
-| **Phase 5** (Pending) | 招待メール自動送信、通知、リアルタイム同期、履歴グラフ、エクスポート等 | 運用快適性の向上                 | 要時のみ |
+| フェーズ | 内容 | 価値 | 期間目安 |
+|---|---|---|---|
+| **Phase 0** | ローカル開発環境整備(Docker / DB / Auth / CI) | 開発を始められる土台 | 1-2日 |
+| **Phase 1** | 認証 + 最低限の閲覧/入力(A1〜A5 + V1 + I1) | ログインして登録・進捗入力できる | 6-8日 |
+| **Phase 2** | V2(タイムライン) + V3(タスク詳細) | ズームと詳細閲覧 | 2-3日 |
+| **Phase 3** | V4(予兆検知ダッシュボード) | 予兆検知が完成 | 2日 |
+| **Phase 4** | AWS デプロイ(Terraform + ECS Fargate + RDS) | 本番稼働 | 3-5日 |
+| **Phase 5** (Pending) | 招待メール自動送信、通知、リアルタイム同期、履歴グラフ、エクスポート等 | 運用快適性の向上 | 要時のみ |
 
 ### 7.2 Phase 0: ローカル開発環境整備
 
 **目的:** Phase 1 以降の機能実装に集中できるよう、ローカル開発と CI のインフラを整える。AWS は触らない。
 
-| Day     | 作業内容                                                                                                                           |
-| ------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Day | 作業内容 |
+|---|---|
 | Day 0-1 | リポジトリ初期化(`foresight`)、Next.js 15 + TypeScript + Tailwind プロジェクト作成、ESLint/Prettier 設定、husky + lint-staged 設定 |
-| Day 0-2 | `compose.yaml` 作成、PostgreSQL コンテナ起動確認、Prisma 導入、`schema.prisma` 記述、初回マイグレーション、Prisma Studio で確認    |
-| Day 0-3 | Auth.js v5 + Credentials Provider 導入、bcrypt 導入、シンプルなサインインページで動作確認、seed スクリプトで初期ユーザー作成       |
-| Day 0-4 | GitHub Actions CI 構築(lint + typecheck + test + build)、main ブランチ保護設定、PR テンプレート作成                                |
+| Day 0-2 | `compose.yaml` 作成、PostgreSQL コンテナ起動確認、Prisma 導入、`schema.prisma` 記述、初回マイグレーション、Prisma Studio で確認 |
+| Day 0-3 | Auth.js v5 + Credentials Provider 導入、bcrypt 導入、シンプルなサインインページで動作確認、seed スクリプトで初期ユーザー作成 |
+| Day 0-4 | GitHub Actions CI 構築(lint + typecheck + test + build)、main ブランチ保護設定、PR テンプレート作成 |
 
 ### 7.3 Phase 1: 認証 + 最低限の閲覧/入力
 
-| Day     | 作業内容                                                                                   |
-| ------- | ------------------------------------------------------------------------------------------ |
+| Day | 作業内容 |
+|---|---|
 | Day 1-1 | Server Actions(招待発行、招待受諾、Project CRUD)、`ProjectMember` ベースの認可ミドルウェア |
-| Day 1-2 | Server Actions(Milestone/Task/Todo CRUD)、重み均等割りロジック、進捗計算ロジック           |
-| Day 1-3 | 共通コンポーネント(進捗バー、ピル、今日線、ガントSVG)                                      |
-| Day 1-4 | A1(ログイン)、A2(招待受諾)、A3(プロジェクト一覧)                                           |
-| Day 1-5 | V1(ツリービュー、インライン編集、ドラッグ&ドロップ)                                        |
-| Day 1-6 | I1(日報入力)                                                                               |
-| Day 1-7 | A4(プロジェクト設定)、A5(ユーザー管理、招待)                                               |
-| Day 1-8 | 計算結果の整合性確認(仕様書11節サンプルデータで)、バグ修正                                 |
+| Day 1-2 | Server Actions(Milestone/Task/Todo CRUD)、重み均等割りロジック、進捗計算ロジック |
+| Day 1-3 | 共通コンポーネント(進捗バー、ピル、今日線、ガントSVG) |
+| Day 1-4 | A1(ログイン)、A2(招待受諾)、A3(プロジェクト一覧) |
+| Day 1-5 | V1(ツリービュー、インライン編集、ドラッグ&ドロップ) |
+| Day 1-6 | I1(日報入力) |
+| Day 1-7 | A4(プロジェクト設定)、A5(ユーザー管理、招待) |
+| Day 1-8 | 計算結果の整合性確認(仕様書11節サンプルデータで)、バグ修正 |
 
 ### 7.4 Phase 2: ズームと詳細
 
-| Day     | 作業内容                                    |
-| ------- | ------------------------------------------- |
-| Day 2-1 | V2(タイムラインビュー)                      |
+| Day | 作業内容 |
+|---|---|
+| Day 2-1 | V2(タイムラインビュー) |
 | Day 2-2 | V3(タスク詳細、ToDo CRUD、ボトルネック警告) |
-| Day 2-3 | バグ修正、回帰テスト                        |
+| Day 2-3 | バグ修正、回帰テスト |
 
 ### 7.5 Phase 3: 予兆検知
 
-| Day     | 作業内容                                            |
-| ------- | --------------------------------------------------- |
+| Day | 作業内容 |
+|---|---|
 | Day 3-1 | 連鎖計算ロジック(ToDo → Task → Milestone → Project) |
-| Day 3-2 | V4(予兆検知ダッシュボード)+ 推奨アクション表示      |
+| Day 3-2 | V4(予兆検知ダッシュボード)+ 推奨アクション表示 |
 
 ### 7.6 Phase 4: AWS デプロイ(Terraform + ECS Fargate)
 
 **目的:** ローカルで完成したアプリを AWS 本番環境にデプロイする。IaC とクラウドインフラのキャッチアップが主目的。
 
-| Day     | 作業内容                                                                                                         |
-| ------- | ---------------------------------------------------------------------------------------------------------------- |
+| Day | 作業内容 |
+|---|---|
 | Day 4-1 | AWS アカウント準備、IAM ユーザー/ロール作成、Terraform バックエンド(S3 + DynamoDB)準備、GitHub Actions OIDC 設定 |
-| Day 4-2 | Terraform: VPC モジュール(Public/Private Subnet, IGW, NAT Gateway, Route Table)                                  |
-| Day 4-3 | Terraform: RDS モジュール、ECR モジュール、Secrets Manager                                                       |
-| Day 4-4 | 本番用 Dockerfile 作成、ローカルで Docker ビルド・動作確認、ECR へ手動プッシュ                                   |
-| Day 4-5 | Terraform: ALB モジュール、ECS モジュール(Cluster, Service, Task Definition, IAM Role)                           |
-| Day 4-6 | Route53 + ACM 設定、HTTPS 動作確認、本番初回デプロイ                                                             |
-| Day 4-7 | GitHub Actions のデプロイワークフロー追加(`deploy.yml`: Docker build → ECR push → ECS service update)            |
+| Day 4-2 | Terraform: VPC モジュール(Public/Private Subnet, IGW, NAT Gateway, Route Table) |
+| Day 4-3 | Terraform: RDS モジュール、ECR モジュール、Secrets Manager |
+| Day 4-4 | 本番用 Dockerfile 作成、ローカルで Docker ビルド・動作確認、ECR へ手動プッシュ |
+| Day 4-5 | Terraform: ALB モジュール、ECS モジュール(Cluster, Service, Task Definition, IAM Role) |
+| Day 4-6 | Route53 + ACM 設定、HTTPS 動作確認、本番初回デプロイ |
+| Day 4-7 | GitHub Actions のデプロイワークフロー追加(`deploy.yml`: Docker build → ECR push → ECS service update) |
 
 ### 7.7 AI 駆動開発の活用方針
 
-| Phase      | 想定する使い方                                                                             |
-| ---------- | ------------------------------------------------------------------------------------------ |
-| Phase 0    | 定型的なセットアップが中心。Sonnet で `/blueprint` → 各ステップを実装する形が向く          |
-| Phase 1〜3 | 仕様書の各画面/ロジック単位で `/blueprint` → 実装。複雑な計算ロジックは Opus も検討        |
-| Phase 4    | Terraform コードは AI 生成に向くが、AWS リソースの実際の作成・確認は人間が行う(IAM/課金等) |
+| Phase | 想定する使い方 |
+|---|---|
+| Phase 0 | 定型的なセットアップが中心。Sonnet で `/blueprint` → 各ステップを実装する形が向く |
+| Phase 1〜3 | 仕様書の各画面/ロジック単位で `/blueprint` → 実装。複雑な計算ロジックは Opus も検討 |
+| Phase 4 | Terraform コードは AI 生成に向くが、AWS リソースの実際の作成・確認は人間が行う(IAM/課金等) |
 
 ---
 
@@ -801,44 +779,43 @@ infra/terraform/
 
 ### 8.3 コスト試算(Phase 4 以降の月額目安)
 
-| サービス                            | 構成                                  | 月額目安(USD) |
-| ----------------------------------- | ------------------------------------- | ------------- |
-| ECS Fargate                         | 0.25 vCPU / 0.5 GB × 1 タスク常時稼働 | ~$10          |
-| RDS for PostgreSQL                  | db.t4g.micro, 20GB                    | ~$15          |
-| ALB                                 | 1台                                   | ~$20          |
-| NAT Gateway                         | 1台                                   | ~$35          |
-| Route53                             | 1ホストゾーン                         | ~$0.5         |
-| その他(ECR, Secrets Manager, S3 等) | -                                     | ~$5           |
-| **合計**                            |                                       | **~$85**      |
+| サービス | 構成 | 月額目安(USD) |
+|---|---|---|
+| ECS Fargate | 0.25 vCPU / 0.5 GB × 1 タスク常時稼働 | ~$10 |
+| RDS for PostgreSQL | db.t4g.micro, 20GB | ~$15 |
+| ALB | 1台 | ~$20 |
+| NAT Gateway | 1台 | ~$35 |
+| Route53 | 1ホストゾーン | ~$0.5 |
+| その他(ECR, Secrets Manager, S3 等) | - | ~$5 |
+| **合計** | | **~$85** |
 
 **コスト最適化案:**
-
 - NAT Gateway を VPC エンドポイントに置き換え → 月 $20 程度削減可能
 - ALB を使わず ECS Service Connect + CloudFront 構成にする選択肢もあるが学習目的なら ALB 採用
 - 開発・検証時のみ起動、不要時は停止する運用も可能
 
 ### 8.4 拡張可能性
 
-| 拡張                  | 想定実装                               |
-| --------------------- | -------------------------------------- |
-| 招待メール自動送信    | AWS SES から送信                       |
-| 通知                  | Slack webhook(Server Actions から呼ぶ) |
-| ロール区分            | `ProjectMember` に `role` 列を追加     |
-| ToDo 重みカスタマイズ | UI を追加し均等割りロジックを切り替え  |
-| 履歴グラフ            | `DailyReport` から集計、新画面追加     |
+| 拡張 | 想定実装 |
+|---|---|
+| 招待メール自動送信 | AWS SES から送信 |
+| 通知 | Slack webhook(Server Actions から呼ぶ) |
+| ロール区分 | `ProjectMember` に `role` 列を追加 |
+| ToDo 重みカスタマイズ | UI を追加し均等割りロジックを切り替え |
+| 履歴グラフ | `DailyReport` から集計、新画面追加 |
 
 ---
 
 ## 9. 非機能要件
 
-| 項目               | 要件                                    |
-| ------------------ | --------------------------------------- |
-| 同時利用ユーザー数 | 当面2名、将来10名以内                   |
-| 応答速度           | 主要操作 200ms 以内                     |
-| 可用性             | ベストエフォート(SLAは要求しない)       |
-| ブラウザ対応       | Chrome / Safari / Firefox / Edge 最新版 |
-| モバイル対応       | 閲覧のみ可能、入力は PC 優先            |
-| データ容量         | プロジェクトあたり数万行までスケール    |
+| 項目 | 要件 |
+|---|---|
+| 同時利用ユーザー数 | 当面2名、将来10名以内 |
+| 応答速度 | 主要操作 200ms 以内 |
+| 可用性 | ベストエフォート(SLAは要求しない) |
+| ブラウザ対応 | Chrome / Safari / Firefox / Edge 最新版 |
+| モバイル対応 | 閲覧のみ可能、入力は PC 優先 |
+| データ容量 | プロジェクトあたり数万行までスケール |
 
 ---
 
@@ -886,10 +863,9 @@ infra/terraform/
 
 ## 改訂履歴
 
-| 日付       | 版   | 内容                                                                                                                                                                                                                                                      |
-| ---------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-05-11 | v1.0 | 初版作成                                                                                                                                                                                                                                                  |
-| 2026-05-12 | v2.0 | 管理系画面追加、ツリービュー上のインライン編集、ToDo重み均等割り、招待制ユーザー登録、ProjectMember / Invitation スキーマ追加                                                                                                                             |
-| 2026-05-12 | v2.1 | プロダクト名「フォーサイトマネジメント」確定、Supabase 廃止 → 自前 PostgreSQL、Docker Compose 化、Phase 0 新設、GitHub Actions CI 追加(社内サーバー前提)                                                                                                  |
+| 日付 | 版 | 内容 |
+|---|---|---|
+| 2026-05-11 | v1.0 | 初版作成 |
+| 2026-05-12 | v2.0 | 管理系画面追加、ツリービュー上のインライン編集、ToDo重み均等割り、招待制ユーザー登録、ProjectMember / Invitation スキーマ追加 |
+| 2026-05-12 | v2.1 | プロダクト名「フォーサイトマネジメント」確定、Supabase 廃止 → 自前 PostgreSQL、Docker Compose 化、Phase 0 新設、GitHub Actions CI 追加(社内サーバー前提) |
 | 2026-05-12 | v3.0 | プロジェクトの位置づけを「AI 駆動開発のキャッチアップ」に明確化。認証を Google OAuth から Credentials(メール+パスワード)に変更。本番先を社内サーバーから **AWS ECS Fargate + RDS** に変更。**Terraform** で IaC 化。Phase 4 として AWS デプロイを切り出し |
-| 2026-05-13 | v3.1 | **M-01**: 日報入力を完了チェックボックスのみに変更。`Todo.actualPct` / `DailyReport.actualPct` を削除。ToDo ステータスを 4 段階に簡素化(警告は ToDo レベルで持たない)。**M-02**: `TodoTemplate` モデル追加、Task 作成時に 6 件の ToDo を自動展開          |

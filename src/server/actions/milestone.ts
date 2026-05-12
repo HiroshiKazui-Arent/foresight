@@ -24,9 +24,9 @@ export async function createMilestone(
   startDate: Date,
   endDate: Date,
 ): Promise<Milestone> {
-  await requireProjectMember(projectId)
   validateName(name)
   validateDates(startDate, endDate)
+  await requireProjectMember(projectId)
 
   const count = await prisma.milestone.count({ where: { projectId } })
 
@@ -34,7 +34,7 @@ export async function createMilestone(
     data: { projectId, name: name.trim(), startDate, endDate, order: count },
   })
 
-  revalidatePath('/projects/' + projectId, 'layout')
+  revalidatePath('/projects/' + projectId)
   return milestone
 }
 
@@ -43,8 +43,8 @@ export async function updateMilestone(
   projectId: string,
   data: { name?: string; startDate?: Date; endDate?: Date },
 ): Promise<Milestone> {
-  await requireProjectMember(projectId)
   if (data.name !== undefined) validateName(data.name)
+  await requireProjectMember(projectId)
 
   const existing = await prisma.milestone.findFirst({ where: { id, projectId } })
   if (!existing) notFound()
@@ -54,7 +54,7 @@ export async function updateMilestone(
     data: { ...data, name: data.name?.trim() },
   })
 
-  revalidatePath('/projects/' + projectId, 'layout')
+  revalidatePath('/projects/' + projectId)
   return milestone
 }
 
@@ -66,7 +66,7 @@ export async function deleteMilestone(id: string, projectId: string): Promise<vo
 
   await prisma.milestone.delete({ where: { id } })
 
-  revalidatePath('/projects/' + projectId, 'layout')
+  revalidatePath('/projects/' + projectId)
 }
 
 export async function reorderMilestones(projectId: string, orderedIds: string[]): Promise<void> {
@@ -82,5 +82,5 @@ export async function reorderMilestones(projectId: string, orderedIds: string[])
     ),
   )
 
-  revalidatePath('/projects/' + projectId, 'layout')
+  revalidatePath('/projects/' + projectId)
 }

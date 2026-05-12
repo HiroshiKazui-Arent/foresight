@@ -9,7 +9,7 @@ import {
 import type { ProgressBarData } from '@/types/progress'
 
 type TodoForCalc = {
-  completed: boolean
+  actualPct: number
   weight: number
 }
 

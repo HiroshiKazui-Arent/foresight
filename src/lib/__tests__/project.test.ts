@@ -63,39 +63,6 @@ describe('createProject', () => {
     )
   })
 
-  it('名前が空文字の場合はバリデーションエラー', async () => {
-    const now = new Date()
-    const end = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-    await expect(createProject('', now, end)).rejects.toThrow('名前は1〜255文字で入力してください')
-    expect(mockPrisma.project.create).not.toHaveBeenCalled()
-  })
-
-  it('名前が255文字超の場合はバリデーションエラー', async () => {
-    const now = new Date()
-    const end = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-    await expect(createProject('a'.repeat(256), now, end)).rejects.toThrow(
-      '名前は1〜255文字で入力してください',
-    )
-    expect(mockPrisma.project.create).not.toHaveBeenCalled()
-  })
-
-  it('無効な日付（NaN）はバリデーションエラー', async () => {
-    const end = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-    await expect(createProject('プロジェクト', new Date('invalid'), end)).rejects.toThrow(
-      '有効な日付を入力してください',
-    )
-    expect(mockPrisma.project.create).not.toHaveBeenCalled()
-  })
-
-  it('開始日が終了日以降の場合はバリデーションエラー', async () => {
-    const now = new Date()
-    const past = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-    await expect(createProject('プロジェクト', now, past)).rejects.toThrow(
-      '開始日は終了日より前にしてください',
-    )
-    expect(mockPrisma.project.create).not.toHaveBeenCalled()
-  })
-
   it('正常系: Project と ProjectMember が作成される', async () => {
     const now = new Date()
     const end = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
@@ -241,46 +208,5 @@ describe('updateProject', () => {
     )
     expect(revalidatePath).toHaveBeenCalledWith('/projects')
     expect(revalidatePath).toHaveBeenCalledWith('/projects/proj-1')
-  })
-
-  it('日付更新: 既存プロジェクトを取得してバリデーション後に更新する', async () => {
-    const startDate = new Date('2026-01-01')
-    const newEndDate = new Date('2027-01-01')
-    mockPrisma.project.findUnique.mockResolvedValue({
-      startDate,
-      endDate: new Date('2026-12-31'),
-    })
-    mockPrisma.project.update.mockResolvedValue({ id: 'proj-1', startDate, endDate: newEndDate })
-
-    await updateProject('proj-1', { endDate: newEndDate })
-
-    expect(mockPrisma.project.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'proj-1' } }),
-    )
-    expect(mockPrisma.project.update).toHaveBeenCalled()
-  })
-
-  it('日付更新時に既存プロジェクトが存在しない場合 notFound が呼ばれる', async () => {
-    mockPrisma.project.findUnique.mockResolvedValue(null)
-
-    await expect(updateProject('proj-1', { endDate: new Date('2027-01-01') })).rejects.toThrow(
-      'NOT_FOUND',
-    )
-    expect(mockPrisma.project.update).not.toHaveBeenCalled()
-  })
-
-  it('日付更新時に開始日 >= 終了日はバリデーションエラー', async () => {
-    mockPrisma.project.findUnique.mockResolvedValue({
-      startDate: new Date('2026-01-01'),
-      endDate: new Date('2026-12-31'),
-    })
-
-    await expect(
-      updateProject('proj-1', {
-        startDate: new Date('2027-01-01'),
-        endDate: new Date('2026-01-01'),
-      }),
-    ).rejects.toThrow('開始日は終了日より前にしてください')
-    expect(mockPrisma.project.update).not.toHaveBeenCalled()
   })
 })

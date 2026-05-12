@@ -7,12 +7,16 @@ import { requireProjectMember } from '@/lib/authz'
 export async function submitDailyReport(
   todoId: string,
   projectId: string,
+  actualPct: number,
   completed: boolean,
   comment?: string,
 ): Promise<void> {
   if (!todoId?.trim() || !projectId?.trim()) throw new Error('不正なリクエストです')
+  if (!Number.isFinite(actualPct)) throw new Error('進捗率が不正です')
   if (comment !== undefined && comment.length > 1000)
     throw new Error('コメントは1000文字以内にしてください')
+
+  const resolvedPct = completed ? 100 : Math.max(0, Math.min(100, Math.round(actualPct)))
 
   const userId = await requireProjectMember(projectId)
 
@@ -32,13 +36,14 @@ export async function submitDailyReport(
         todoId,
         reportedBy: userId,
         date: reportDate,
+        actualPct: resolvedPct,
         completed,
         comment,
       },
     })
     await tx.todo.update({
       where: { id: todoId },
-      data: { completed },
+      data: { actualPct: resolvedPct, completed },
     })
   })
 

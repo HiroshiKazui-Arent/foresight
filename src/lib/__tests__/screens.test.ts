@@ -89,7 +89,7 @@ describe('getUserProjects (include ツリー)', () => {
   it('Milestone/Task/Todo を含むプロジェクト一覧を返す', async () => {
     const todo = {
       id: 'todo-1',
-      completed: false,
+      actualPct: 50,
       weight: 100,
       startDate: new Date('2026-01-01'),
       endDate: new Date('2026-03-01'),
@@ -172,24 +172,27 @@ describe('プロジェクト一覧ページ: ProgressBarData 計算', () => {
   const today = new Date('2026-05-12')
 
   it('単純なツリーで ProgressBarData が正しく計算される', () => {
-    // Todo: completed=true, weight=100 → Task実績 = 100
-    const todos = [{ completed: true, weight: 100 }]
+    // Todo: actualPct=60, weight=100
+    // Task: startDate〜endDate (期間あり)
+    // Milestone: 1 Task
+    // Project: 1 Milestone
+    const todos = [{ actualPct: 60, weight: 100 }]
     const taskActual = calcTaskActualPct(todos)
-    expect(taskActual).toBe(100)
+    expect(taskActual).toBe(60)
 
     const taskStartDate = new Date('2026-01-01')
     const taskEndDate = new Date('2026-12-31')
     const milestoneActual = calcMilestoneActualPct([
       { actualPct: taskActual, startDate: taskStartDate, endDate: taskEndDate },
     ])
-    expect(milestoneActual).toBe(100)
+    expect(milestoneActual).toBe(60)
 
     const projectStartDate = new Date('2026-01-01')
     const projectEndDate = new Date('2026-12-31')
     const projectActual = calcProjectActualPct([
       { actualPct: milestoneActual, startDate: projectStartDate, endDate: projectEndDate },
     ])
-    expect(projectActual).toBe(100)
+    expect(projectActual).toBe(60)
 
     const scheduled = calcScheduledPct(projectStartDate, projectEndDate, today)
     const status = calcStatus(projectActual, scheduled)
@@ -210,8 +213,8 @@ describe('プロジェクト一覧ページ: ProgressBarData 計算', () => {
 
   it('全 Todo が完了なら projectActual=100 かつ status=completed', () => {
     const todos = [
-      { completed: true, weight: 50 },
-      { completed: true, weight: 50 },
+      { actualPct: 100, weight: 50 },
+      { actualPct: 100, weight: 50 },
     ]
     const taskActual = calcTaskActualPct(todos)
     const start = new Date('2026-01-01')

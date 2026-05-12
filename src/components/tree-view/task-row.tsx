@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { Task, Todo } from '@prisma/client'
@@ -64,23 +63,13 @@ export function TaskRow({
           </button>
         )}
 
-        {/* タスク名（インライン編集） + V3 遷移リンク */}
-        <div className="flex min-w-0 flex-1 items-center gap-1">
+        {/* タスク名（インライン編集） */}
+        <div className="min-w-0 flex-1">
           <InlineEdit
             value={task.name}
             onSave={(newName) => onUpdateTask(task.id, newName)}
             className="text-sm font-medium"
           />
-          {mode !== 'input' && (
-            <Link
-              href={`/projects/${projectId}/tasks/${task.id}`}
-              className="shrink-0 rounded p-1 text-xs text-gray-400 hover:text-blue-500"
-              aria-label="タスク詳細を開く"
-              title="タスク詳細"
-            >
-              →
-            </Link>
-          )}
         </div>
 
         {/* 進捗情報 */}

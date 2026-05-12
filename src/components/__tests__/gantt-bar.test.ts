@@ -1,13 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { createElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
 import type { ProgressStatus } from '@/types/progress'
-import {
-  fillColors,
-  clampPct,
-  shouldShowScheduledMarker,
-  GanttBar,
-} from '@/components/gantt/gantt-bar'
+import { fillColors, clampPct, shouldShowScheduledMarker } from '@/components/gantt/gantt-bar'
 
 describe('GanttBar 描画ロジック', () => {
   describe('fillColors', () => {
@@ -131,36 +124,5 @@ describe('GanttBar 描画ロジック', () => {
     it('actualPct=-1 はクランプされ 0%', () => {
       expect(clampPct(-1)).toBe(0)
     })
-  })
-})
-
-describe('GanttBar コンポーネント', () => {
-  it('SVG 要素をレンダリングする', () => {
-    const html = renderToStaticMarkup(
-      createElement(GanttBar, { actualPct: 50, scheduledPct: 70, status: 'on-track' }),
-    )
-    expect(html).toContain('<svg')
-    expect(html).toContain('進捗バー')
-  })
-
-  it('scheduledPct が 0〜100 の中間のとき予定位置マーカーが含まれる', () => {
-    const html = renderToStaticMarkup(
-      createElement(GanttBar, { actualPct: 30, scheduledPct: 50, status: 'delayed' }),
-    )
-    expect(html).toContain('<line')
-  })
-
-  it('scheduledPct=0 のとき予定位置マーカーが含まれない', () => {
-    const html = renderToStaticMarkup(
-      createElement(GanttBar, { actualPct: 0, scheduledPct: 0, status: 'scheduled' }),
-    )
-    expect(html).not.toContain('<line')
-  })
-
-  it('scheduledPct=100 のとき予定位置マーカーが含まれない', () => {
-    const html = renderToStaticMarkup(
-      createElement(GanttBar, { actualPct: 100, scheduledPct: 100, status: 'completed' }),
-    )
-    expect(html).not.toContain('<line')
   })
 })

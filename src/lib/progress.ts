@@ -25,26 +25,6 @@ export function calcStatus(actualPct: number, scheduledPct: number): ProgressSta
   return 'warning'
 }
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000
-export const TODO_WARNING_THRESHOLD_DAYS = 3
-
-/**
- * ToDo は actualPct を持たないため、completed + 日付で 4 段階に判定する(M-01)。
- * 警告状態は ToDo レベルでは持たない。期日まで TODO_WARNING_THRESHOLD_DAYS 未満は 'delayed' 扱い。
- */
-export function calcTodoStatus(
-  completed: boolean,
-  startDate: Date,
-  endDate: Date,
-  today: Date,
-): ProgressStatus {
-  if (completed) return 'completed'
-  const daysToDeadline = (endDate.getTime() - today.getTime()) / MS_PER_DAY
-  if (daysToDeadline < TODO_WARNING_THRESHOLD_DAYS) return 'delayed'
-  if (today.getTime() < startDate.getTime()) return 'scheduled'
-  return 'on-track'
-}
-
 function calcWeightedAvgByDuration(
   items: { actualPct: number; startDate: Date; endDate: Date }[],
 ): number {
@@ -61,12 +41,11 @@ function calcWeightedAvgByDuration(
   return weighted / totalDuration
 }
 
-export function calcTaskActualPct(todos: { completed: boolean; weight: number }[]): number {
+export function calcTaskActualPct(todos: { actualPct: number; weight: number }[]): number {
   if (todos.length === 0) return 0
   const totalWeight = todos.reduce((sum, t) => sum + t.weight, 0)
   if (totalWeight === 0) return 0
-  const completedWeight = todos.reduce((sum, t) => sum + (t.completed ? t.weight : 0), 0)
-  return (completedWeight / totalWeight) * 100
+  return todos.reduce((sum, t) => sum + t.actualPct * t.weight, 0) / totalWeight
 }
 
 export function calcMilestoneActualPct(
