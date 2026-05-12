@@ -107,6 +107,23 @@ describe('buildRecommendation', () => {
     const result = buildRecommendation('delayed', 0)
     expect(result).toBe('遅延傾向 — 進捗確認を推奨')
   })
+
+  // ケース12: status='warning', slipDays=0 → スリップなし大幅遅延メッセージ
+  it('status=warning, slipDays=0 → スリップ予測なしの大幅遅延メッセージ', () => {
+    expect(buildRecommendation('warning', 0)).toBe('大幅遅延(-20%以上) — 即時対応が必要です')
+  })
+
+  // ケース13: status='delayed', slipDays>0 → スリップ日数付き遅延傾向メッセージ
+  it('status=delayed, slipDays=3 → スリップ日数を含む遅延傾向メッセージ', () => {
+    expect(buildRecommendation('delayed', 3)).toBe(
+      '遅延傾向: 3日のスリップ予測 — 担当者への確認を推奨',
+    )
+  })
+
+  // ケース14: その他ステータス → 空文字
+  it('status=on-track → 空文字を返す', () => {
+    expect(buildRecommendation('on-track', 0)).toBe('')
+  })
 })
 
 // ===========================

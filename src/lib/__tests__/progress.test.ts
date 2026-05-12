@@ -107,6 +107,10 @@ describe('calcTaskActualPct', () => {
   it('空配列は0', () => {
     expect(calcTaskActualPct([])).toBe(0)
   })
+  it('全 ToDo の weight が 0 のとき 0 を返す', () => {
+    expect(calcTaskActualPct([{ actualPct: 80, weight: 0 }])).toBe(0)
+  })
+
   it('単一ToDoは自身のpctをそのまま返す', () => {
     expect(calcTaskActualPct([{ actualPct: 75, weight: 100 }])).toBe(75)
   })
@@ -152,6 +156,11 @@ describe('calcMilestoneActualPct', () => {
     ]
     expect(calcMilestoneActualPct(tasks)).toBe(50)
   })
+  it('全アイテムの期間が 0 のとき 0 を返す', () => {
+    const same = new Date('2026-01-01')
+    expect(calcMilestoneActualPct([{ actualPct: 80, startDate: same, endDate: same }])).toBe(0)
+  })
+
   it('期間が長いタスクが重みが大きい', () => {
     const s1 = new Date('2026-01-01')
     const e1 = new Date('2026-01-21')

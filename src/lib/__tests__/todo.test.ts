@@ -110,6 +110,15 @@ describe('createTodo', () => {
     expect(mockPrisma.todo.create).not.toHaveBeenCalled()
   })
 
+  it('無効な日付(Invalid Date)はバリデーションエラー', async () => {
+    const invalid = new Date('invalid')
+    const valid = new Date('2026-02-01')
+    await expect(createTodo('task-1', 'proj-1', '名前', invalid, valid)).rejects.toThrow(
+      '有効な日付を入力してください',
+    )
+    expect(mockPrisma.todo.create).not.toHaveBeenCalled()
+  })
+
   it('ToDo が 1 件の場合は weight が 100 になる', async () => {
     const now = new Date()
     const end = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)

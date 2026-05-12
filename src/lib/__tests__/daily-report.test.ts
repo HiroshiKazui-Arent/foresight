@@ -95,6 +95,25 @@ describe('submitDailyReport', () => {
     expect(mockPrisma.dailyReport.create).not.toHaveBeenCalled()
   })
 
+  it('コメントが1000文字を超える場合はエラー', async () => {
+    await expect(
+      submitDailyReport('todo-1', 'proj-1', 50, false, 'a'.repeat(1001)),
+    ).rejects.toThrow('コメントは1000文字以内にしてください')
+    expect(mockPrisma.dailyReport.create).not.toHaveBeenCalled()
+  })
+
+  it('todoId が空文字の場合はエラー', async () => {
+    await expect(submitDailyReport('', 'proj-1', 50, false)).rejects.toThrow('不正なリクエストです')
+    expect(mockPrisma.dailyReport.create).not.toHaveBeenCalled()
+  })
+
+  it('actualPct が有限値でない場合はエラー', async () => {
+    await expect(submitDailyReport('todo-1', 'proj-1', NaN, false)).rejects.toThrow(
+      '進捗率が不正です',
+    )
+    expect(mockPrisma.dailyReport.create).not.toHaveBeenCalled()
+  })
+
   it('revalidatePath がプロジェクトのパスで呼ばれる', async () => {
     const { revalidatePath } = await import('next/cache')
 
