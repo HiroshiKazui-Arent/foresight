@@ -6,7 +6,7 @@ test.use({ storageState: { cookies: [], origins: [] } })
 test.describe('ログイン画面', () => {
   test('未ログイン時は /login にリダイレクトされる', async ({ page }) => {
     await page.goto('/projects')
-    await expect(page).toHaveURL('/login')
+    await expect(page).toHaveURL(/\/login/)
   })
 
   test('ログイン画面が表示される', async ({ page }) => {

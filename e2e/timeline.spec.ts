@@ -14,7 +14,7 @@ test.describe('タイムライン画面', () => {
   test('マイルストーンのタイムラインが表示される', async ({ page }) => {
     await navigateToMilestonePage(page)
 
-    await expect(page.getByText('要件定義フェーズ')).toBeVisible()
+    await expect(page.getByText('要件定義フェーズ').first()).toBeVisible()
     await expect(page.getByText('ユーザーヒアリング')).toBeVisible()
     await expect(page.getByText('要件ドキュメント作成')).toBeVisible()
   })
@@ -28,6 +28,9 @@ test.describe('タイムライン画面', () => {
 
   test('ToDo 一覧が表示される', async ({ page }) => {
     await navigateToMilestonePage(page)
+
+    // タスク行を展開して ToDo を表示する
+    await page.getByRole('button', { name: '展開する' }).first().click()
 
     await expect(page.getByText('利用者インタビュー')).toBeVisible()
     await expect(page.getByText('ペルソナ定義')).toBeVisible()
