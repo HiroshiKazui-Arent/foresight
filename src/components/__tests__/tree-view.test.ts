@@ -9,13 +9,13 @@ import {
 
 const today = new Date('2026-05-12')
 
-const makeTodo = (id: string, actualPct: number, weight: number) => ({
+// M-01: ToDo の進捗は completed の二値のみ。actualPct は廃止
+const makeTodo = (id: string, completed: boolean, weight: number) => ({
   id,
   taskId: 'task-1',
   name: `ToDo ${id}`,
-  actualPct,
   weight,
-  completed: actualPct === 100,
+  completed,
   startDate: new Date('2026-01-01'),
   endDate: new Date('2026-06-01'),
   order: 0,
@@ -67,14 +67,14 @@ describe('buildTaskProgressData', () => {
     expect(result.actualPct).toBe(0)
   })
 
-  it('単一 ToDo 100% のタスクは actualPct=100', () => {
-    const task = makeTask('t1', [makeTodo('td1', 100, 100)])
+  it('単一 ToDo 完了のタスクは actualPct=100', () => {
+    const task = makeTask('t1', [makeTodo('td1', true, 100)])
     const result = buildTaskProgressData(task, today)
     expect(result.actualPct).toBe(100)
   })
 
-  it('重み付き平均を計算する', () => {
-    const todos = [makeTodo('td1', 100, 75), makeTodo('td2', 0, 25)]
+  it('重み付き平均を計算する (完了 weight 75 / 未完了 weight 25 → 75%)', () => {
+    const todos = [makeTodo('td1', true, 75), makeTodo('td2', false, 25)]
     const task = makeTask('t1', todos)
     const result = buildTaskProgressData(task, today)
     expect(result.actualPct).toBe(75)
@@ -104,7 +104,7 @@ describe('buildTaskProgressData', () => {
   })
 
   it('status が正しく設定される', () => {
-    const task = makeTask('t1', [makeTodo('td1', 100, 100)])
+    const task = makeTask('t1', [makeTodo('td1', true, 100)])
     const result = buildTaskProgressData(task, today)
     expect(result.status).toBe('completed')
   })
@@ -135,7 +135,7 @@ describe('buildMilestoneProgressData', () => {
   })
 
   it('全 Task 完了のマイルストーンは actualPct=100', () => {
-    const task = makeTask('t1', [makeTodo('td1', 100, 100)])
+    const task = makeTask('t1', [makeTodo('td1', true, 100)])
     const ms = makeMilestone('ms1', [task])
     const result = buildMilestoneProgressData(ms, today)
     expect(result.actualPct).toBe(100)
@@ -144,13 +144,13 @@ describe('buildMilestoneProgressData', () => {
   it('期間加重平均を使う（期間長 Task が重みが大きい）', () => {
     const longTask = makeTask(
       't1',
-      [makeTodo('td1', 100, 100)],
+      [makeTodo('td1', true, 100)],
       new Date('2026-01-01'),
       new Date('2026-07-01'),
     )
     const shortTask = makeTask(
       't2',
-      [makeTodo('td2', 0, 100)],
+      [makeTodo('td2', false, 100)],
       new Date('2026-01-01'),
       new Date('2026-02-01'),
     )
@@ -189,7 +189,7 @@ describe('buildProjectProgressData', () => {
   })
 
   it('全 Milestone 完了は actualPct=100', () => {
-    const task = makeTask('t1', [makeTodo('td1', 100, 100)])
+    const task = makeTask('t1', [makeTodo('td1', true, 100)])
     const ms = makeMilestone('ms1', [task])
     const result = buildProjectProgressData([ms], today)
     expect(result.actualPct).toBe(100)
@@ -202,6 +202,24 @@ describe('buildProjectProgressData', () => {
     const result = buildProjectProgressData([ms], today)
     expect(result.scheduledPct).toBeGreaterThanOrEqual(0)
     expect(result.scheduledPct).toBeLessThanOrEqual(100)
+  })
+
+  it('複数 Milestone の中で最も早い startDate と最も遅い endDate を採用する', () => {
+    // ms2 が最小 startDate・最大 endDate → reduce の true 分岐をカバー
+    const ms1 = makeMilestone('ms1', [], new Date('2026-03-01'), new Date('2026-09-30'))
+    const ms2 = makeMilestone('ms2', [], new Date('2026-01-01'), new Date('2026-12-31'))
+    const result = buildProjectProgressData([ms1, ms2], today)
+    expect(result.startDate).toEqual(new Date('2026-01-01'))
+    expect(result.endDate).toEqual(new Date('2026-12-31'))
+  })
+
+  it('後続 Milestone の startDate が大きい・endDate が小さい場合は初期値を維持する', () => {
+    // ms1 が最小 startDate・最大 endDate → reduce の false 分岐をカバー
+    const ms1 = makeMilestone('ms1', [], new Date('2026-01-01'), new Date('2026-12-31'))
+    const ms2 = makeMilestone('ms2', [], new Date('2026-03-01'), new Date('2026-09-30'))
+    const result = buildProjectProgressData([ms1, ms2], today)
+    expect(result.startDate).toEqual(new Date('2026-01-01'))
+    expect(result.endDate).toEqual(new Date('2026-12-31'))
   })
 })
 

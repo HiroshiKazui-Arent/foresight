@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { requireProjectMember } from '@/lib/authz'
+import { redistributeWeights } from '@/lib/weight'
 import type { Task } from '@prisma/client'
 
 function validateName(name: string) {
@@ -25,20 +26,40 @@ export async function createTask(
   startDate: Date,
   endDate: Date,
 ): Promise<Task> {
+  await requireProjectMember(projectId)
   validateName(name)
   validateDates(startDate, endDate)
-  await requireProjectMember(projectId)
 
   const milestone = await prisma.milestone.findFirst({ where: { id: milestoneId, projectId } })
   if (!milestone) notFound()
 
-  const count = await prisma.task.count({ where: { milestoneId } })
+  // Task 作成と TodoTemplate からの ToDo 一括展開を単一トランザクションで実行(M-02)
+  const task = await prisma.$transaction(async (tx) => {
+    const count = await tx.task.count({ where: { milestoneId } })
+    const created = await tx.task.create({
+      data: { milestoneId, name: name.trim(), startDate, endDate, order: count },
+    })
 
-  const task = await prisma.task.create({
-    data: { milestoneId, name: name.trim(), startDate, endDate, order: count },
+    const templates = await tx.todoTemplate.findMany({ orderBy: { order: 'asc' } })
+    if (templates.length > 0) {
+      const weights = redistributeWeights(templates.length)
+      await tx.todo.createMany({
+        data: templates.map((tpl, i) => ({
+          taskId: created.id,
+          name: tpl.name,
+          weight: weights[i],
+          completed: false,
+          startDate: created.startDate,
+          endDate: created.endDate,
+          order: i,
+        })),
+      })
+    }
+
+    return created
   })
 
-  revalidatePath('/projects/' + projectId)
+  revalidatePath('/projects/' + projectId, 'layout')
   return task
 }
 
@@ -47,8 +68,8 @@ export async function updateTask(
   projectId: string,
   data: { name?: string; startDate?: Date; endDate?: Date; assigneeId?: string | null },
 ): Promise<Task> {
-  if (data.name !== undefined) validateName(data.name)
   await requireProjectMember(projectId)
+  if (data.name !== undefined) validateName(data.name)
 
   const existing = await prisma.task.findFirst({ where: { id, milestone: { projectId } } })
   if (!existing) notFound()
@@ -65,7 +86,7 @@ export async function updateTask(
     data: { ...data, name: data.name?.trim() },
   })
 
-  revalidatePath('/projects/' + projectId)
+  revalidatePath('/projects/' + projectId, 'layout')
   return task
 }
 
@@ -77,7 +98,7 @@ export async function deleteTask(id: string, projectId: string): Promise<void> {
 
   await prisma.task.delete({ where: { id } })
 
-  revalidatePath('/projects/' + projectId)
+  revalidatePath('/projects/' + projectId, 'layout')
 }
 
 export async function reorderTasks(
@@ -100,5 +121,5 @@ export async function reorderTasks(
     ),
   )
 
-  revalidatePath('/projects/' + projectId)
+  revalidatePath('/projects/' + projectId, 'layout')
 }
