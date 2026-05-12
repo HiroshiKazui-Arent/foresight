@@ -203,6 +203,24 @@ describe('buildProjectProgressData', () => {
     expect(result.scheduledPct).toBeGreaterThanOrEqual(0)
     expect(result.scheduledPct).toBeLessThanOrEqual(100)
   })
+
+  it('複数 Milestone の中で最も早い startDate と最も遅い endDate を採用する', () => {
+    // ms2 が最小 startDate・最大 endDate → reduce の true 分岐をカバー
+    const ms1 = makeMilestone('ms1', [], new Date('2026-03-01'), new Date('2026-09-30'))
+    const ms2 = makeMilestone('ms2', [], new Date('2026-01-01'), new Date('2026-12-31'))
+    const result = buildProjectProgressData([ms1, ms2], today)
+    expect(result.startDate).toEqual(new Date('2026-01-01'))
+    expect(result.endDate).toEqual(new Date('2026-12-31'))
+  })
+
+  it('後続 Milestone の startDate が大きい・endDate が小さい場合は初期値を維持する', () => {
+    // ms1 が最小 startDate・最大 endDate → reduce の false 分岐をカバー
+    const ms1 = makeMilestone('ms1', [], new Date('2026-01-01'), new Date('2026-12-31'))
+    const ms2 = makeMilestone('ms2', [], new Date('2026-03-01'), new Date('2026-09-30'))
+    const result = buildProjectProgressData([ms1, ms2], today)
+    expect(result.startDate).toEqual(new Date('2026-01-01'))
+    expect(result.endDate).toEqual(new Date('2026-12-31'))
+  })
 })
 
 // ─── InlineEdit ロジックテスト ────────────────────────────────────────────────

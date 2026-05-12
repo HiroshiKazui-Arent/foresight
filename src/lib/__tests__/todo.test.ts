@@ -93,6 +93,23 @@ describe('createTodo', () => {
     expect(revalidatePath).toHaveBeenCalled()
   })
 
+  it('名前が空文字の場合はバリデーションエラー', async () => {
+    const now = new Date()
+    const end = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+    await expect(createTodo('task-1', 'proj-1', '', now, end)).rejects.toThrow(
+      '名前は1〜255文字で入力してください',
+    )
+    expect(mockPrisma.todo.create).not.toHaveBeenCalled()
+  })
+
+  it('開始日 >= 終了日はバリデーションエラー', async () => {
+    const now = new Date()
+    await expect(createTodo('task-1', 'proj-1', '名前', now, now)).rejects.toThrow(
+      '開始日は終了日より前にしてください',
+    )
+    expect(mockPrisma.todo.create).not.toHaveBeenCalled()
+  })
+
   it('ToDo が 1 件の場合は weight が 100 になる', async () => {
     const now = new Date()
     const end = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
@@ -202,6 +219,9 @@ describe('deleteTodo', () => {
 describe('updateTodo', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockPrisma.$transaction.mockImplementation(
+      async (fn: (tx: typeof mockPrisma) => Promise<unknown>) => fn(mockPrisma),
+    )
   })
 
   it('正常系: 名前を更新する（weight は変更しない）', async () => {
@@ -228,6 +248,40 @@ describe('updateTodo', () => {
     mockPrisma.todo.findFirst.mockResolvedValue(null)
 
     await expect(updateTodo('todo-other', 'proj-1', { name: 'Hack' })).rejects.toThrow('NOT_FOUND')
+    expect(mockPrisma.todo.update).not.toHaveBeenCalled()
+  })
+
+  it('日付更新: 有効な endDate で更新できる', async () => {
+    const existing = {
+      id: 'todo-1',
+      taskId: 'task-1',
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-06-01'),
+    }
+    mockPrisma.todo.findFirst.mockResolvedValue(existing)
+    mockPrisma.todo.update.mockResolvedValue({ ...existing, endDate: new Date('2026-12-31') })
+
+    await updateTodo('todo-1', 'proj-1', { endDate: new Date('2026-12-31') })
+
+    expect(mockPrisma.todo.update).toHaveBeenCalled()
+    expect(revalidatePath).toHaveBeenCalled()
+  })
+
+  it('日付更新: 開始日 >= 終了日はバリデーションエラー', async () => {
+    const existing = {
+      id: 'todo-1',
+      taskId: 'task-1',
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-06-01'),
+    }
+    mockPrisma.todo.findFirst.mockResolvedValue(existing)
+
+    await expect(
+      updateTodo('todo-1', 'proj-1', {
+        startDate: new Date('2026-12-31'),
+        endDate: new Date('2026-01-01'),
+      }),
+    ).rejects.toThrow('開始日は終了日より前にしてください')
     expect(mockPrisma.todo.update).not.toHaveBeenCalled()
   })
 })
