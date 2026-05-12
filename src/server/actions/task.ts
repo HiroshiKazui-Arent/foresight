@@ -25,9 +25,9 @@ export async function createTask(
   startDate: Date,
   endDate: Date,
 ): Promise<Task> {
+  await requireProjectMember(projectId)
   validateName(name)
   validateDates(startDate, endDate)
-  await requireProjectMember(projectId)
 
   const milestone = await prisma.milestone.findFirst({ where: { id: milestoneId, projectId } })
   if (!milestone) notFound()
@@ -38,7 +38,7 @@ export async function createTask(
     data: { milestoneId, name: name.trim(), startDate, endDate, order: count },
   })
 
-  revalidatePath('/projects/' + projectId)
+  revalidatePath('/projects/' + projectId, 'layout')
   return task
 }
 
