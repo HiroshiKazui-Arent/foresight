@@ -120,6 +120,9 @@ describe('createInvitation', () => {
 describe('revokeInvitation', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockPrisma.$transaction.mockImplementation(
+      async (fn: (tx: typeof mockPrisma) => Promise<unknown>) => fn(mockPrisma),
+    )
   })
 
   it('発行者が招待を REVOKED に更新する', async () => {
@@ -129,11 +132,11 @@ describe('revokeInvitation', () => {
       projectId: 'proj-1',
       status: 'PENDING',
     })
-    mockPrisma.invitation.update.mockResolvedValue({ id: 'inv-1', status: 'REVOKED' })
+    mockPrisma.invitation.updateMany.mockResolvedValue({ count: 1 })
 
     await revokeInvitation('inv-1')
 
-    expect(mockPrisma.invitation.update).toHaveBeenCalledWith(
+    expect(mockPrisma.invitation.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: { status: 'REVOKED' } }),
     )
   })
@@ -142,7 +145,7 @@ describe('revokeInvitation', () => {
     mockPrisma.invitation.findUnique.mockResolvedValue(null) // 招待が存在しない
 
     await expect(revokeInvitation('nonexistent-id')).resolves.toBeUndefined()
-    expect(mockPrisma.invitation.update).not.toHaveBeenCalled()
+    expect(mockPrisma.invitation.updateMany).not.toHaveBeenCalled()
   })
 
   it('発行者でもプロジェクトメンバーでもない場合は Forbidden になる', async () => {
@@ -155,7 +158,7 @@ describe('revokeInvitation', () => {
     mockPrisma.projectMember.findUnique.mockResolvedValue(null) // プロジェクトメンバーでもない
 
     await expect(revokeInvitation('inv-2')).rejects.toThrow('Forbidden')
-    expect(mockPrisma.invitation.update).not.toHaveBeenCalled()
+    expect(mockPrisma.invitation.updateMany).not.toHaveBeenCalled()
   })
 })
 
@@ -360,7 +363,7 @@ describe('acceptInvitation', () => {
     const result = await acceptInvitation('any_token', 'User', 'short')
 
     expect(result).toHaveProperty('error')
-    expect((result as { error: string }).error).toMatch(/8文字/)
+    expect((result as { error: string }).error).toMatch(/8.+文字/)
     expect(mockPrisma.$transaction).not.toHaveBeenCalled()
   })
 

@@ -8,10 +8,16 @@ import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import type { Invitation, Project } from '@prisma/client'
 
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+
 export async function createInvitation(
   email: string,
   projectId?: string,
 ): Promise<{ token: string }> {
+  if (!email || !emailRegex.test(email) || email.length > 254) {
+    throw new Error('有効なメールアドレスを入力してください')
+  }
+
   const session = await auth()
   const userId = session?.user?.id
   if (!userId) throw new Error('Unauthorized')
@@ -42,6 +48,8 @@ export async function createInvitation(
     throw new Error('招待の作成に失敗しました')
   }
 
+  revalidatePath('/users')
+  if (projectId) revalidatePath('/projects/' + projectId + '/settings')
   return { token }
 }
 
@@ -72,8 +80,8 @@ export async function acceptInvitation(
   if (!name || name.trim().length === 0 || name.length > 100) {
     return { error: '氏名を正しく入力してください (1〜100文字)' }
   }
-  if (!password || password.length < 8) {
-    return { error: 'パスワードは8文字以上で入力してください' }
+  if (!password || password.length < 8 || password.length > 72) {
+    return { error: 'パスワードは8〜72文字で入力してください' }
   }
 
   try {
@@ -149,33 +157,44 @@ export async function revokeInvitation(invitationId: string): Promise<void> {
   const userId = session?.user?.id
   if (!userId) throw new Error('Unauthorized')
 
-  // 招待の存在と認可を確認 (存在しない場合は冪等に扱う)
-  const invitation = await prisma.invitation.findUnique({ where: { id: invitationId } })
-  if (!invitation) return
-
-  // 発行者か、該当プロジェクトのメンバーのみ取り消し可能
-  if (invitation.invitedById !== userId) {
-    if (invitation.projectId) {
-      const member = await prisma.projectMember.findUnique({
-        where: { projectId_userId: { projectId: invitation.projectId, userId } },
-      })
-      if (!member) throw new Error('Forbidden')
-    } else {
-      throw new Error('Forbidden')
-    }
-  }
+  let projectId: string | null = null
 
   try {
-    await prisma.invitation.update({
-      where: { id: invitationId, status: 'PENDING' }, // ACCEPTED 済みは上書きしない
-      data: { status: 'REVOKED' },
+    // トランザクション内で認可チェックと更新をアトミックに実行 (TOCTOU 防止)
+    await prisma.$transaction(async (tx) => {
+      const invitation = await tx.invitation.findUnique({
+        where: { id: invitationId },
+        select: { id: true, invitedById: true, projectId: true, status: true },
+      })
+      if (!invitation) return
+
+      if (invitation.invitedById !== userId) {
+        if (invitation.projectId) {
+          const member = await tx.projectMember.findUnique({
+            where: { projectId_userId: { projectId: invitation.projectId, userId } },
+          })
+          if (!member) throw new Error('Forbidden')
+        } else {
+          throw new Error('Forbidden')
+        }
+      }
+
+      projectId = invitation.projectId
+
+      await tx.invitation.updateMany({
+        where: { id: invitationId, status: 'PENDING' },
+        data: { status: 'REVOKED' },
+      })
     })
-    revalidatePath('/users')
   } catch (err) {
+    if (err instanceof Error && err.message === 'Forbidden') throw err
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
       return // PENDING でない (既に処理済み) — 冪等に扱う
     }
     console.error('revokeInvitation error:', err)
     throw new Error('招待の取り消しに失敗しました')
   }
+
+  revalidatePath('/users')
+  if (projectId) revalidatePath('/projects/' + projectId + '/settings')
 }
