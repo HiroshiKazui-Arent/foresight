@@ -114,6 +114,7 @@ export async function updateProject(
   revalidatePath('/projects')
   revalidatePath('/projects/' + id)
   revalidatePath('/projects/' + id + '/settings')
+  revalidatePath('/projects/' + id + '/dashboard')
   return project
 }
 
