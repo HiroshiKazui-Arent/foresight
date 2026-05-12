@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: foresight
+          POSTGRES_PASSWORD: foresight_test
+          POSTGRES_DB: foresight_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx prisma generate
+
+      - run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://foresight:foresight_test@localhost:5432/foresight_test
+
+      - run: npm run lint
+
+      - run: npm run typecheck
+
+      - run: npm test
+        env:
+          DATABASE_URL: postgresql://foresight:foresight_test@localhost:5432/foresight_test
+
+      - run: npm run build
+        env:
+          DATABASE_URL: postgresql://foresight:foresight_test@localhost:5432/foresight_test
+          AUTH_SECRET: test_secret
+          AUTH_TRUST_HOST: 'true'
