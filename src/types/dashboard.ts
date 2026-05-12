@@ -1,16 +1,14 @@
 import type { ProgressStatus } from './progress'
 
+// ToDo 単独の予測は二値(completed)ベースに簡素化。
+// status は date-based: completed=true → 'completed', 期日超過かつ未完了 → 'delayed', その他は warningTodos に含めない
 export type TodoForecast = {
   id: string
   name: string
   startDate: Date
   endDate: Date
-  actualPct: number
-  scheduledPct: number
+  completed: boolean
   status: ProgressStatus
-  daysDeviation: number
-  completionDate: Date | null
-  slipDays: number
   recommendation: string
 }
 

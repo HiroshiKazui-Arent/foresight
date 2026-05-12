@@ -7,7 +7,6 @@ export type TodoWithProgress = {
   startDate: Date
   endDate: Date
   weight: number
-  actualPct: number
   completed: boolean
   progressData: ProgressBarData
 }

@@ -5,6 +5,7 @@ import {
   calcTaskActualPct,
   calcMilestoneActualPct,
   calcProjectActualPct,
+  calcTodoStatus,
 } from './progress'
 import type { ProgressStatus } from '@/types/progress'
 import type {
@@ -20,8 +21,17 @@ type TodoData = {
   name: string
   startDate: Date
   endDate: Date
-  actualPct: number
+  completed: boolean
   weight: number
+}
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000
+
+function buildTodoRecommendation(daysToDeadline: number): string {
+  if (daysToDeadline < 0) {
+    return `期日超過: ${Math.ceil(-daysToDeadline)}日経過 — 即完了が必要です`
+  }
+  return `期日まで ${Math.ceil(daysToDeadline)} 日 — 進捗確認を推奨`
 }
 
 type TaskData = {
@@ -178,38 +188,18 @@ export function buildDashboardData(project: ProjectData, today: Date): ProjectFo
       const warningTodos: TodoForecast[] = []
 
       for (const todo of task.todos) {
-        const todoScheduledPct = calcScheduledPct(todo.startDate, todo.endDate, today)
-        const todoStatus = calcStatus(todo.actualPct, todoScheduledPct)
-
-        if (!WARNING_STATUSES.includes(todoStatus)) continue
-
-        const todoDurationDays =
-          (todo.endDate.getTime() - todo.startDate.getTime()) / (24 * 60 * 60 * 1000)
-        const todoDaysDeviation = calcDaysDeviation(
-          todo.actualPct,
-          todoScheduledPct,
-          todoDurationDays,
-        )
-        const todoCompletionDate = calcCompletionDate(
-          todo.actualPct,
-          todo.startDate,
-          todo.endDate,
-          today,
-        )
-        const todoSlipDays = calcSlipDays(todoCompletionDate, todo.endDate)
+        const todoStatus = calcTodoStatus(todo.completed, todo.startDate, todo.endDate, today)
+        if (todoStatus !== 'delayed') continue
+        const daysToDeadline = (todo.endDate.getTime() - today.getTime()) / MS_PER_DAY
 
         warningTodos.push({
           id: todo.id,
           name: todo.name,
           startDate: todo.startDate,
           endDate: todo.endDate,
-          actualPct: todo.actualPct,
-          scheduledPct: todoScheduledPct,
+          completed: todo.completed,
           status: todoStatus,
-          daysDeviation: todoDaysDeviation,
-          completionDate: todoCompletionDate,
-          slipDays: todoSlipDays,
-          recommendation: buildRecommendation(todoStatus, todoSlipDays),
+          recommendation: buildTodoRecommendation(daysToDeadline),
         })
       }
 
