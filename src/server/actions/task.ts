@@ -47,8 +47,8 @@ export async function updateTask(
   projectId: string,
   data: { name?: string; startDate?: Date; endDate?: Date; assigneeId?: string | null },
 ): Promise<Task> {
-  if (data.name !== undefined) validateName(data.name)
   await requireProjectMember(projectId)
+  if (data.name !== undefined) validateName(data.name)
 
   const existing = await prisma.task.findFirst({ where: { id, milestone: { projectId } } })
   if (!existing) notFound()
@@ -65,7 +65,7 @@ export async function updateTask(
     data: { ...data, name: data.name?.trim() },
   })
 
-  revalidatePath('/projects/' + projectId)
+  revalidatePath('/projects/' + projectId, 'layout')
   return task
 }
 
@@ -77,7 +77,7 @@ export async function deleteTask(id: string, projectId: string): Promise<void> {
 
   await prisma.task.delete({ where: { id } })
 
-  revalidatePath('/projects/' + projectId)
+  revalidatePath('/projects/' + projectId, 'layout')
 }
 
 export async function reorderTasks(
@@ -100,5 +100,5 @@ export async function reorderTasks(
     ),
   )
 
-  revalidatePath('/projects/' + projectId)
+  revalidatePath('/projects/' + projectId, 'layout')
 }
