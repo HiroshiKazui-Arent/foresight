@@ -6,7 +6,7 @@ import { ProgressPill } from '@/components/progress-pill'
 import { StatusPill } from '@/components/status-pill'
 import { DaysPill } from '@/components/days-pill'
 import { GanttBar } from '@/components/gantt/gantt-bar'
-import { TodayLine } from '@/components/gantt/today-line'
+import { isValidTodayX } from '@/components/gantt/today-line'
 import { xForDate } from '@/components/gantt/timeline-utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -146,38 +146,60 @@ export function ProjectList({ projects, today }: ProjectListProps) {
         </div>
       ) : (
         <div className="space-y-3">
-          {projects.map((project) => (
-            <button
-              key={project.id}
-              onClick={() => router.push('/projects/' + project.id)}
-              className="w-full rounded-lg border border-gray-200 bg-white p-4 text-left shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">{project.name}</h2>
-                <div className="flex items-center gap-3">
-                  <StatusPill status={project.progressBar.status} />
-                  <DaysPill days={project.progressBar.daysDeviation} />
+          {projects.map((project) => {
+            const todayX = xForDate(today, project.startDate, project.endDate)
+            const showToday = isValidTodayX(todayX)
+            return (
+              <button
+                key={project.id}
+                onClick={() => router.push('/projects/' + project.id)}
+                className="w-full rounded-lg border border-gray-200 bg-white p-4 text-left shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
+              >
+                <div className="relative">
+                  {showToday && (
+                    <>
+                      {/* 今日線: カードコンテンツ全高を貫く */}
+                      <div
+                        className="pointer-events-none absolute inset-y-0 w-0.5 bg-red-500"
+                        style={{ left: `${todayX}%` }}
+                        aria-label="今日の位置"
+                      />
+                      {/* 日付バッジ: 線の上端に配置 */}
+                      <span
+                        className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded bg-red-500 px-1 py-0.5 text-[10px] leading-none font-medium whitespace-nowrap text-white"
+                        style={{ left: `${todayX}%` }}
+                      >
+                        今日 {today.getUTCMonth() + 1}/{today.getUTCDate()}
+                      </span>
+                    </>
+                  )}
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-gray-900">{project.name}</h2>
+                    <div className="flex items-center gap-3">
+                      <StatusPill status={project.progressBar.status} />
+                      <DaysPill days={project.progressBar.daysDeviation} />
+                    </div>
+                  </div>
+                  <div className="relative mb-2 h-4">
+                    <GanttBar
+                      actualPct={project.progressBar.actualPct}
+                      scheduledPct={project.progressBar.scheduledPct}
+                      status={project.progressBar.status}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <ProgressPill
+                      actualPct={project.progressBar.actualPct}
+                      scheduledPct={project.progressBar.scheduledPct}
+                    />
+                    <span className="text-xs text-gray-400">
+                      {fmtDate(project.startDate)} 〜 {fmtDate(project.endDate)}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div className="relative mb-2 h-4">
-                <GanttBar
-                  actualPct={project.progressBar.actualPct}
-                  scheduledPct={project.progressBar.scheduledPct}
-                  status={project.progressBar.status}
-                />
-                <TodayLine todayX={xForDate(today, project.startDate, project.endDate)} />
-              </div>
-              <div className="flex items-center justify-between">
-                <ProgressPill
-                  actualPct={project.progressBar.actualPct}
-                  scheduledPct={project.progressBar.scheduledPct}
-                />
-                <span className="text-xs text-gray-400">
-                  {fmtDate(project.startDate)} 〜 {fmtDate(project.endDate)}
-                </span>
-              </div>
-            </button>
-          ))}
+              </button>
+            )
+          })}
         </div>
       )}
     </div>
