@@ -158,14 +158,16 @@ export function MilestoneRow({
             ))}
           </SortableContext>
 
-          {/* タスク追加ボタン (view モードのみ) */}
+          {/* タスク追加ボタン (view モードのみ): タスク行 ml-6 より一段深い ml-10 */}
           {mode !== 'input' && (
-            <AddRowButton
-              label="タスクを追加"
-              onAdd={(name, startDate, endDate) =>
-                onAddTask(milestone.id, name, startDate, endDate)
-              }
-            />
+            <div className="ml-10">
+              <AddRowButton
+                label="タスクを追加"
+                onAdd={(name, startDate, endDate) =>
+                  onAddTask(milestone.id, name, startDate, endDate)
+                }
+              />
+            </div>
           )}
         </div>
       )}

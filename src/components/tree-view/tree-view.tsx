@@ -191,7 +191,9 @@ export function TreeView({ project, today, mode = 'view' }: TreeViewProps) {
         </SortableContext>
       </DndContext>
 
-      <AddRowButton label="マイルストーンを追加" onAdd={handleAddMilestone} />
+      <div className="pl-3">
+        <AddRowButton label="マイルストーンを追加" onAdd={handleAddMilestone} />
+      </div>
 
       {/* 今日線オーバーレイ: position:absolute でコンテナ全体を貫き、右カラムに縦線を描く */}
       <div
