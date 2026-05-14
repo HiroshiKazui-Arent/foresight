@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { createElement, type ComponentProps } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import type { ProgressStatus } from '@/types/progress'
+import type { ProgressStatus, RenderStatus } from '@/types/progress'
 import { STATUS_COLORS, clampPct, GanttBar } from '@/components/gantt/gantt-bar'
+import { barOffsetWidth } from '@/components/gantt/timeline-utils'
 
 // ---------------------------------------------------------------------------
 // STATUS_COLORS (旧 fillColors から置き換え)
@@ -412,5 +413,229 @@ describe('GanttBar overdue 描画 (status 色ハッチ)', () => {
     // 既存挙動: 斜線と灰がある
     expect(html).toMatch(/url\(#hatch[^)]*\)/)
     expect(html).toContain('bg-gray-100')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// GanttBar RenderStatus-driven 5状態描画
+// ---------------------------------------------------------------------------
+describe('GanttBar RenderStatus-driven 5状態描画', () => {
+  const pStart = new Date('2024-01-01')
+  const pEnd = new Date('2024-12-31')
+  const rStart = new Date('2024-01-01')
+  const rEnd = new Date('2024-06-30')
+
+  function makeRS(overrides: Partial<ComponentProps<typeof GanttBar>> = {}) {
+    return createElement(GanttBar, {
+      projectStart: pStart,
+      projectEnd: pEnd,
+      rowStart: rStart,
+      rowEnd: rEnd,
+      today: new Date('2024-04-01'),
+      actualPct: 50,
+      scheduledPct: 70,
+      renderStatus: 'delayed-pre-deadline' as RenderStatus,
+      ...overrides,
+    } as ComponentProps<typeof GanttBar>)
+  }
+
+  // State 0: scheduled
+  it('scheduled: bg-gray-100 全幅、fill-amber-400 なし', () => {
+    const html = renderToStaticMarkup(
+      makeRS({
+        renderStatus: 'scheduled',
+        today: new Date('2023-12-01'), // rowStart より前
+      }),
+    )
+    expect(html).toContain('bg-gray-100')
+    expect(html).not.toContain('fill-amber-400')
+    expect(html).not.toContain('fill-red-500')
+  })
+
+  // State 1: completed
+  it('completed: bg-green-500 全幅、hatch なし', () => {
+    const html = renderToStaticMarkup(makeRS({ renderStatus: 'completed', actualPct: 100 }))
+    expect(html).toContain('bg-green-500')
+    expect(html).not.toContain('url(#hatch')
+    expect(html).not.toContain('fill-red-500')
+  })
+
+  // State 2: delayed-pre-deadline
+  it('delayed-pre-deadline: amber solid + orange hatch + gray future', () => {
+    const html = renderToStaticMarkup(
+      makeRS({
+        renderStatus: 'delayed-pre-deadline',
+        actualPct: 30,
+        scheduledPct: 60,
+        today: new Date('2024-04-01'),
+      }),
+    )
+    expect(html).toContain('fill-amber-400')
+    expect(html).toContain('#f59e0b')
+    expect(html).toContain('fill-gray-100')
+    expect(html).not.toContain('fill-red-500')
+  })
+
+  it('delayed-pre-deadline: actualPct >= scheduledPct → hatch なし', () => {
+    const html = renderToStaticMarkup(
+      makeRS({
+        renderStatus: 'delayed-pre-deadline',
+        actualPct: 70,
+        scheduledPct: 50,
+      }),
+    )
+    expect(html).not.toContain('url(#hatch')
+  })
+
+  // State 3: overdue-past-deadline
+  it('overdue-past-deadline: amber solid + orange hatch + red section + 縦マーカー', () => {
+    const html = renderToStaticMarkup(
+      makeRS({
+        renderStatus: 'overdue-past-deadline',
+        actualPct: 60,
+        scheduledPct: 100,
+        rowStart: new Date('2024-01-01'),
+        rowEnd: new Date('2024-03-31'),
+        today: new Date('2024-04-15'),
+      }),
+    )
+    expect(html).toContain('fill-amber-400')
+    expect(html).toContain('#f59e0b')
+    expect(html).toContain('fill-red-500')
+    expect(html).toContain('planned-end-marker')
+    expect(html).not.toContain('fill-gray-100')
+    expect(html).toContain('(期日超過)')
+  })
+
+  it('overdue-past-deadline: wrapper が rowEnd より wide (today まで延伸)', () => {
+    const pS = new Date('2024-01-01')
+    const pE = new Date('2024-12-31')
+    const rS = new Date('2024-01-01')
+    const rE = new Date('2024-03-31')
+    const tod = new Date('2024-04-15')
+    const normalWidth = barOffsetWidth(rS, rE, pS, pE).width
+    const extendedWidth = barOffsetWidth(rS, tod, pS, pE).width
+    const html = renderToStaticMarkup(
+      createElement(GanttBar, {
+        projectStart: pS,
+        projectEnd: pE,
+        rowStart: rS,
+        rowEnd: rE,
+        today: tod,
+        actualPct: 60,
+        scheduledPct: 100,
+        renderStatus: 'overdue-past-deadline' as RenderStatus,
+      } as ComponentProps<typeof GanttBar>),
+    )
+    expect(html).toContain(`width:${extendedWidth}%`)
+    expect(extendedWidth).toBeGreaterThan(normalWidth)
+  })
+
+  // State 4: not-started-overdue
+  it('not-started-overdue: red hatch + red solid + 縦マーカー、amber なし', () => {
+    const html = renderToStaticMarkup(
+      makeRS({
+        renderStatus: 'not-started-overdue',
+        actualPct: 0,
+        rowStart: new Date('2024-01-01'),
+        rowEnd: new Date('2024-03-31'),
+        today: new Date('2024-04-15'),
+      }),
+    )
+    expect(html).toContain('#ef4444') // red hatch stroke
+    expect(html).toContain('fill-red-500')
+    expect(html).toContain('planned-end-marker')
+    expect(html).not.toContain('fill-amber-400')
+    expect(html).toContain('(期日超過)')
+  })
+
+  it('not-started-overdue: wrapper が rowEnd より wide (today まで延伸)', () => {
+    const pS = new Date('2024-01-01')
+    const pE = new Date('2024-12-31')
+    const rS = new Date('2024-01-01')
+    const rE = new Date('2024-03-31')
+    const tod = new Date('2024-04-15')
+    const normalWidth = barOffsetWidth(rS, rE, pS, pE).width
+    const extendedWidth = barOffsetWidth(rS, tod, pS, pE).width
+    const html = renderToStaticMarkup(
+      createElement(GanttBar, {
+        projectStart: pS,
+        projectEnd: pE,
+        rowStart: rS,
+        rowEnd: rE,
+        today: tod,
+        actualPct: 0,
+        scheduledPct: 0,
+        renderStatus: 'not-started-overdue' as RenderStatus,
+      } as ComponentProps<typeof GanttBar>),
+    )
+    expect(html).toContain(`width:${extendedWidth}%`)
+    expect(extendedWidth).toBeGreaterThan(normalWidth)
+  })
+
+  // State 4: not-started-overdue かつ today <= rowEnd (期日前だが未着手)
+  it('not-started-overdue + today <= rowEnd: バーが today まで短縮、赤 solid なし、(期日超過) なし', () => {
+    const pS = new Date('2024-01-01')
+    const pE = new Date('2024-12-31')
+    const rS = new Date('2024-01-01')
+    const rE = new Date('2024-06-30')
+    const tod = new Date('2024-02-01') // rowEnd より前
+    const barWidthToday = barOffsetWidth(rS, tod, pS, pE).width
+    const barWidthRowEnd = barOffsetWidth(rS, rE, pS, pE).width
+    const html = renderToStaticMarkup(
+      createElement(GanttBar, {
+        projectStart: pS,
+        projectEnd: pE,
+        rowStart: rS,
+        rowEnd: rE,
+        today: tod,
+        actualPct: 0,
+        scheduledPct: 0,
+        renderStatus: 'not-started-overdue' as RenderStatus,
+      } as ComponentProps<typeof GanttBar>),
+    )
+    // バーは today まで延伸 (rowEnd より短い)
+    expect(html).toContain(`width:${barWidthToday}%`)
+    expect(barWidthToday).toBeLessThan(barWidthRowEnd)
+    // red solid なし (plannedEndX=100 → 100-100=0)
+    expect(html).not.toContain('fill-red-500')
+    // aria-label に「期日超過」なし (today <= rowEnd)
+    expect(html).not.toContain('(期日超過)')
+    // 赤ハッチは存在する
+    expect(html).toContain('#ef4444')
+  })
+
+  // aria-label
+  it('aria-label に RenderStatus 対応ラベルが含まれる', () => {
+    const cases: [RenderStatus, string][] = [
+      ['scheduled', '予定'],
+      ['completed', '完了'],
+      ['delayed-pre-deadline', '遅延'],
+      ['overdue-past-deadline', '超過'],
+      ['not-started-overdue', '未着'],
+    ]
+    for (const [rs, label] of cases) {
+      const html = renderToStaticMarkup(makeRS({ renderStatus: rs }))
+      expect(html).toContain(label)
+    }
+  })
+
+  // Legacy backward compat
+  it('legacy (renderStatus なし、status あり) 既存挙動を維持', () => {
+    const html = renderToStaticMarkup(
+      createElement(GanttBar, {
+        actualPct: 50,
+        scheduledPct: 70,
+        status: 'on-track' as ProgressStatus,
+        projectStart: pStart,
+        projectEnd: pEnd,
+        rowStart: rStart,
+        rowEnd: rEnd,
+        today: new Date('2024-04-01'),
+      } as ComponentProps<typeof GanttBar>),
+    )
+    expect(html).toContain('進行中')
+    expect(html).not.toContain('fill-amber-400') // old rendering uses bg-xxx not fill-xxx
+    expect(html).toContain('bg-blue-500') // old on-track color
   })
 })
