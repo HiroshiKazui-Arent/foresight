@@ -6,12 +6,15 @@ import {
   calcTaskActualPct,
   calcMilestoneActualPct,
   calcProjectActualPct,
+  calcRenderStatus,
+  calcAggregateRenderStatus,
 } from '@/lib/progress'
-import type { ProgressBarData } from '@/types/progress'
+import type { ProgressBarData, RenderStatus } from '@/types/progress'
 import { calcProjectDateRange } from './project-date-range'
 
 type TodoForProgressData = {
   completed: boolean
+  started?: boolean // 省略時は false として扱う（後方互換）
   startDate: Date
   endDate: Date
 }
@@ -20,6 +23,7 @@ export type TodoProgressData = ProgressBarData & {
   startDate: Date
   endDate: Date
   actualPct: number
+  renderStatus: RenderStatus
 }
 
 /**
@@ -35,6 +39,11 @@ export function buildTodoProgressData(todo: TodoForProgressData, today: Date): T
   const status = calcTodoStatus(todo.completed, todo.startDate, todo.endDate, today)
   const durationDays = (todo.endDate.getTime() - todo.startDate.getTime()) / (1000 * 60 * 60 * 24)
   const daysDeviation = calcDaysDeviation(actualPct, scheduledPct, durationDays)
+  const started = todo.started ?? false
+  const renderStatus = calcRenderStatus(
+    { started, completed: todo.completed, startDate: todo.startDate, endDate: todo.endDate },
+    today,
+  )
   return {
     actualPct,
     scheduledPct,
@@ -42,11 +51,13 @@ export function buildTodoProgressData(todo: TodoForProgressData, today: Date): T
     daysDeviation,
     startDate: todo.startDate,
     endDate: todo.endDate,
+    renderStatus,
   }
 }
 
 type TodoForCalc = {
   completed: boolean
+  started?: boolean // 省略時は false として扱う（後方互換）
   weight: number
 }
 
@@ -66,12 +77,14 @@ export type TaskProgressData = ProgressBarData & {
   startDate: Date
   endDate: Date
   actualPct: number
+  renderStatus: RenderStatus
 }
 
 export type MilestoneProgressData = ProgressBarData & {
   startDate: Date
   endDate: Date
   actualPct: number
+  renderStatus: RenderStatus
 }
 
 export function buildTaskProgressData(task: TaskForCalc, today: Date): TaskProgressData {
@@ -80,6 +93,12 @@ export function buildTaskProgressData(task: TaskForCalc, today: Date): TaskProgr
   const status = calcStatus(actualPct, scheduledPct)
   const durationDays = (task.endDate.getTime() - task.startDate.getTime()) / (1000 * 60 * 60 * 24)
   const daysDeviation = calcDaysDeviation(actualPct, scheduledPct, durationDays)
+  const anyChildStarted = task.todos.some((t) => t.started ?? false)
+  const renderStatus = calcAggregateRenderStatus(
+    { startDate: task.startDate, endDate: task.endDate, actualPct },
+    today,
+    anyChildStarted,
+  )
   return {
     actualPct,
     scheduledPct,
@@ -87,6 +106,7 @@ export function buildTaskProgressData(task: TaskForCalc, today: Date): TaskProgr
     daysDeviation,
     startDate: task.startDate,
     endDate: task.endDate,
+    renderStatus,
   }
 }
 
@@ -104,6 +124,12 @@ export function buildMilestoneProgressData(
   const durationDays =
     (milestone.endDate.getTime() - milestone.startDate.getTime()) / (1000 * 60 * 60 * 24)
   const daysDeviation = calcDaysDeviation(actualPct, scheduledPct, durationDays)
+  const anyChildStarted = milestone.tasks.some((t) => t.todos.some((td) => td.started ?? false))
+  const renderStatus = calcAggregateRenderStatus(
+    { startDate: milestone.startDate, endDate: milestone.endDate, actualPct },
+    today,
+    anyChildStarted,
+  )
   return {
     actualPct,
     scheduledPct,
@@ -111,6 +137,7 @@ export function buildMilestoneProgressData(
     daysDeviation,
     startDate: milestone.startDate,
     endDate: milestone.endDate,
+    renderStatus,
   }
 }
 
