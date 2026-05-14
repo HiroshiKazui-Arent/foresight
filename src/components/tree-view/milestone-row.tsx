@@ -132,6 +132,7 @@ export function MilestoneRow({
             projectEnd={projectEnd}
             rowStart={milestone.startDate}
             rowEnd={milestone.endDate}
+            today={today}
             actualPct={progress.actualPct}
             scheduledPct={progress.scheduledPct}
             status={progress.status}

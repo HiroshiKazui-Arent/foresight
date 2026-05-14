@@ -44,6 +44,17 @@ export default function PreviewPage() {
           <GanttBar actualPct={100} scheduledPct={100} status="completed" />
           <div>警告 (actualPct=20, scheduledPct=50)</div>
           <GanttBar actualPct={20} scheduledPct={50} status="warning" />
+          <div>期日超過 — overdue 赤ベタ (actualPct=40, today が rowEnd を超過)</div>
+          <GanttBar
+            projectStart={new Date('2024-01-01')}
+            projectEnd={new Date('2024-03-31')}
+            rowStart={new Date('2024-01-01')}
+            rowEnd={new Date('2024-03-31')}
+            today={new Date('2024-05-01')}
+            actualPct={40}
+            scheduledPct={100}
+            status="delayed"
+          />
         </div>
       </section>
     </div>

@@ -52,6 +52,7 @@ export function TodoRow({ todo, today, projectStart, projectEnd }: TodoRowProps)
             projectEnd={projectEnd}
             rowStart={todo.startDate}
             rowEnd={todo.endDate}
+            today={today}
             actualPct={progress.actualPct}
             scheduledPct={progress.scheduledPct}
             status={progress.status}

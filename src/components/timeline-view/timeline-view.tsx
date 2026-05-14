@@ -39,6 +39,11 @@ export function TimelineView({ milestone, tasks, projectId, today }: Props) {
         </div>
         <div className="relative h-4">
           <GanttBar
+            projectStart={milestone.startDate}
+            projectEnd={milestone.endDate}
+            rowStart={milestone.startDate}
+            rowEnd={milestone.endDate}
+            today={today}
             actualPct={milestone.progressData.actualPct}
             scheduledPct={milestone.progressData.scheduledPct}
             status={milestone.progressData.status}
@@ -131,6 +136,11 @@ function TaskRow({ task, milestoneScope, projectId, today }: TaskRowProps) {
             }}
           >
             <GanttBar
+              projectStart={task.startDate}
+              projectEnd={task.endDate}
+              rowStart={task.startDate}
+              rowEnd={task.endDate}
+              today={today}
               actualPct={task.actualPct}
               scheduledPct={task.scheduledPct}
               status={task.status}
@@ -189,6 +199,11 @@ function TodoList({ todos, taskScope, today }: TodoListProps) {
                   }}
                 >
                   <GanttBar
+                    projectStart={todo.startDate}
+                    projectEnd={todo.endDate}
+                    rowStart={todo.startDate}
+                    rowEnd={todo.endDate}
+                    today={today}
                     actualPct={todo.progressData.actualPct}
                     scheduledPct={todo.progressData.scheduledPct}
                     status={todo.progressData.status}

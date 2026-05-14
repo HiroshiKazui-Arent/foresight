@@ -6,7 +6,7 @@ import { ProgressPill } from '@/components/progress-pill'
 import { StatusPill } from '@/components/status-pill'
 import { DaysPill } from '@/components/days-pill'
 import { GanttBar } from '@/components/gantt/gantt-bar'
-import { isValidTodayX } from '@/components/gantt/today-line'
+import { formatTodayLabel } from '@/components/gantt/timeline-header'
 import { xForDate } from '@/components/gantt/timeline-utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -148,7 +148,7 @@ export function ProjectList({ projects, today }: ProjectListProps) {
         <div className="space-y-3">
           {projects.map((project) => {
             const todayX = xForDate(today, project.startDate, project.endDate)
-            const showToday = isValidTodayX(todayX)
+            const showToday = today >= project.startDate && today <= project.endDate
             return (
               <button
                 key={project.id}
@@ -166,10 +166,10 @@ export function ProjectList({ projects, today }: ProjectListProps) {
                       />
                       {/* 日付バッジ: 線の上端に配置 */}
                       <span
-                        className="pointer-events-none absolute top-0 z-10 translate-x-1 rounded bg-red-500 px-1.5 py-0.5 text-xs leading-none font-medium whitespace-nowrap text-white"
+                        className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded bg-red-500 px-1.5 py-0.5 text-xs leading-none font-medium whitespace-nowrap text-white"
                         style={{ left: `${todayX}%` }}
                       >
-                        今日 {today.getUTCMonth() + 1}/{today.getUTCDate()}
+                        {formatTodayLabel(today)}
                       </span>
                     </>
                   )}
@@ -182,6 +182,11 @@ export function ProjectList({ projects, today }: ProjectListProps) {
                   </div>
                   <div className="relative mb-2 h-4">
                     <GanttBar
+                      projectStart={project.startDate}
+                      projectEnd={project.endDate}
+                      rowStart={project.startDate}
+                      rowEnd={project.endDate}
+                      today={today}
                       actualPct={project.progressBar.actualPct}
                       scheduledPct={project.progressBar.scheduledPct}
                       status={project.progressBar.status}

@@ -128,6 +128,7 @@ export function TaskRow({
             projectEnd={projectEnd}
             rowStart={task.startDate}
             rowEnd={task.endDate}
+            today={today}
             actualPct={progress.actualPct}
             scheduledPct={progress.scheduledPct}
             status={progress.status}
