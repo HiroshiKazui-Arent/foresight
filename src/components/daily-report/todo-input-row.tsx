@@ -98,7 +98,7 @@ export function TodoInputRow({
   const progress = buildTodoProgressData({ ...todo, started, completed }, today)
 
   return (
-    <div className="flex flex-col gap-0.5 py-0.5">
+    <div className="flex flex-col gap-0.5 py-0.5" data-testid="todo-input-row">
       {/* 5カラムGrid (TodoRow と同一テンプレート): name / checkbox×2 / status / days / bar */}
       <div
         style={{

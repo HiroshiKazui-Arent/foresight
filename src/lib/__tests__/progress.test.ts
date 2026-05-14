@@ -358,6 +358,27 @@ describe('calcRenderStatus (Todo 5状態)', () => {
     const todo = { started: true, completed: false, startDate, endDate }
     expect(calcRenderStatus(todo, startDate)).toBe('delayed-pre-deadline')
   })
+
+  // ±1ms 境界値テスト
+  it('today = startDate - 1ms → scheduled (ms 精度)', () => {
+    const todo = { started: false, completed: false, startDate, endDate }
+    expect(calcRenderStatus(todo, new Date(startDate.getTime() - 1))).toBe('scheduled')
+  })
+
+  it('today = startDate + 1ms, started=false → not-started-overdue (ms 精度)', () => {
+    const todo = { started: false, completed: false, startDate, endDate }
+    expect(calcRenderStatus(todo, new Date(startDate.getTime() + 1))).toBe('not-started-overdue')
+  })
+
+  it('today = endDate - 1ms, started=true → delayed-pre-deadline (ms 精度)', () => {
+    const todo = { started: true, completed: false, startDate, endDate }
+    expect(calcRenderStatus(todo, new Date(endDate.getTime() - 1))).toBe('delayed-pre-deadline')
+  })
+
+  it('today = endDate + 1ms, started=true → overdue-past-deadline (ms 精度)', () => {
+    const todo = { started: true, completed: false, startDate, endDate }
+    expect(calcRenderStatus(todo, new Date(endDate.getTime() + 1))).toBe('overdue-past-deadline')
+  })
 })
 
 // ─── calcAggregateRenderStatus ───────────────────────────────────────────────
