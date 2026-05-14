@@ -166,7 +166,7 @@ export function ProjectList({ projects, today }: ProjectListProps) {
                       />
                       {/* 日付バッジ: 線の上端に配置 */}
                       <span
-                        className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded bg-red-500 px-1 py-0.5 text-[10px] leading-none font-medium whitespace-nowrap text-white"
+                        className="pointer-events-none absolute top-0 z-10 translate-x-1 rounded bg-red-500 px-1.5 py-0.5 text-xs leading-none font-medium whitespace-nowrap text-white"
                         style={{ left: `${todayX}%` }}
                       >
                         今日 {today.getUTCMonth() + 1}/{today.getUTCDate()}
