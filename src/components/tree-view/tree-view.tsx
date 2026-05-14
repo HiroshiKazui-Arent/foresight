@@ -166,7 +166,12 @@ export function TreeView({ project, today, mode = 'view' }: TreeViewProps) {
         </div>
       </div>
 
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <DndContext
+        id="tree-view-dnd"
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
         <SortableContext items={milestoneIds} strategy={verticalListSortingStrategy}>
           {milestones.map((milestone) => (
             <MilestoneRow

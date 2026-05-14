@@ -2,8 +2,8 @@
  * ガントチャート共有座標系ヘルパー
  *
  * xForDate / barOffsetWidth は getTime() 差分のみで計算するためタイムゾーン非依存。
- * monthBoundaries は new Date(year, month, 1) でローカル月初を生成するため
- * ブラウザのローカルタイムゾーンに従う (意図的)。
+ * monthBoundaries は Date.UTC(year, month, 1) で UTC 月初を生成するため
+ * サーバー (Docker/UTC) とブラウザ (JST) でも同一結果を返す。
  * projectStart === projectEnd の場合はゼロ除算ガードとして 0 / 空を返す。
  */
 
@@ -53,12 +53,12 @@ export function monthBoundaries(projectStart: Date, projectEnd: Date): { date: D
   const result: { date: Date; x: number }[] = []
 
   // projectStart の月から走査を開始する
-  // 月初を new Date(year, month, 1) で生成 (ローカル日付)
-  let year = projectStart.getFullYear()
-  let month = projectStart.getMonth()
+  // 月初を Date.UTC(year, month, 1) で生成 (UTC 日付) → サーバー/ブラウザで同一結果
+  let year = projectStart.getUTCFullYear()
+  let month = projectStart.getUTCMonth()
 
   while (true) {
-    const candidate = new Date(year, month, 1)
+    const candidate = new Date(Date.UTC(year, month, 1))
     if (candidate.getTime() > projectEnd.getTime()) break
 
     if (candidate.getTime() >= projectStart.getTime()) {

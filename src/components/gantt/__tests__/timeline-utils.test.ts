@@ -1,9 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { xForDate, barOffsetWidth, monthBoundaries } from '../timeline-utils'
 
-// ローカル日付ヘルパー (テスト内でのみ使用)
+// ローカル日付ヘルパー (xForDate / barOffsetWidth テスト用)
 function d(year: number, month: number, day: number): Date {
   return new Date(year, month - 1, day)
+}
+
+// UTC 日付ヘルパー (monthBoundaries テスト用 — DB から来る日付は UTC midnight)
+function utcD(year: number, month: number, day: number): Date {
+  return new Date(Date.UTC(year, month - 1, day))
 }
 
 // --------------------------------
@@ -111,44 +116,46 @@ describe('barOffsetWidth', () => {
 // --------------------------------
 // monthBoundaries
 // --------------------------------
+// DB から来る日付は UTC midnight なので utcD() を使う。
+// monthBoundaries は Date.UTC ベースで月初を生成するため UTC 日付と比較する。
 describe('monthBoundaries', () => {
   it('同月内の短期間 (同月) → projectStart が月初ならその1件のみ', () => {
     // 2025-03-01 〜 2025-03-15 : 3月1日が月初なので含まれる
-    const result = monthBoundaries(d(2025, 3, 1), d(2025, 3, 15))
+    const result = monthBoundaries(utcD(2025, 3, 1), utcD(2025, 3, 15))
     expect(result).toHaveLength(1)
-    expect(result[0].date.getMonth()).toBe(2) // 3月 (0-indexed)
-    expect(result[0].date.getDate()).toBe(1)
+    expect(result[0].date.getUTCMonth()).toBe(2) // 3月 (0-indexed)
+    expect(result[0].date.getUTCDate()).toBe(1)
   })
 
   it('同月内で開始日が月初でない → 空配列', () => {
     // 2025-03-05 〜 2025-03-15 : 4月1日はprojectEnd以降なので含まれない
-    const result = monthBoundaries(d(2025, 3, 5), d(2025, 3, 15))
+    const result = monthBoundaries(utcD(2025, 3, 5), utcD(2025, 3, 15))
     expect(result).toHaveLength(0)
   })
 
   it('ちょうど3ヶ月の期間 (月初〜月初) → 3エントリ', () => {
     // 2025-01-01 〜 2025-03-31: 1/1, 2/1, 3/1 の3件
-    const result = monthBoundaries(d(2025, 1, 1), d(2025, 3, 31))
+    const result = monthBoundaries(utcD(2025, 1, 1), utcD(2025, 3, 31))
     expect(result).toHaveLength(3)
-    expect(result[0].date.getDate()).toBe(1)
-    expect(result[0].date.getMonth()).toBe(0) // 1月
-    expect(result[1].date.getMonth()).toBe(1) // 2月
-    expect(result[2].date.getMonth()).toBe(2) // 3月
+    expect(result[0].date.getUTCDate()).toBe(1)
+    expect(result[0].date.getUTCMonth()).toBe(0) // 1月
+    expect(result[1].date.getUTCMonth()).toBe(1) // 2月
+    expect(result[2].date.getUTCMonth()).toBe(2) // 3月
   })
 
   it('projectStart が月初 → 配列に含まれる', () => {
-    const result = monthBoundaries(d(2025, 4, 1), d(2025, 6, 30))
-    expect(result[0].date.getTime()).toBe(d(2025, 4, 1).getTime())
+    const result = monthBoundaries(utcD(2025, 4, 1), utcD(2025, 6, 30))
+    expect(result[0].date.getTime()).toBe(utcD(2025, 4, 1).getTime())
   })
 
   it('projectStart が月初でない → projectStart は含まれない', () => {
-    const result = monthBoundaries(d(2025, 4, 15), d(2025, 6, 30))
+    const result = monthBoundaries(utcD(2025, 4, 15), utcD(2025, 6, 30))
     // 最初のエントリは 5/1 のはず
-    expect(result[0].date.getTime()).toBe(d(2025, 5, 1).getTime())
+    expect(result[0].date.getTime()).toBe(utcD(2025, 5, 1).getTime())
   })
 
   it('各エントリの x が昇順かつ 0〜100 の範囲内', () => {
-    const result = monthBoundaries(d(2025, 1, 1), d(2025, 12, 31))
+    const result = monthBoundaries(utcD(2025, 1, 1), utcD(2025, 12, 31))
     expect(result.length).toBeGreaterThan(0)
     for (const entry of result) {
       expect(entry.x).toBeGreaterThanOrEqual(0)
@@ -161,15 +168,15 @@ describe('monthBoundaries', () => {
 
   it('projectEnd が月初 → x=100 で配列に含まれる', () => {
     // 2025-01-15 〜 2025-04-01: 2/1, 3/1, 4/1 の3件 (4/1 が x=100)
-    const result = monthBoundaries(d(2025, 1, 15), d(2025, 4, 1))
+    const result = monthBoundaries(utcD(2025, 1, 15), utcD(2025, 4, 1))
     expect(result).toHaveLength(3)
     const last = result[result.length - 1]
-    expect(last.date.getTime()).toBe(d(2025, 4, 1).getTime())
+    expect(last.date.getTime()).toBe(utcD(2025, 4, 1).getTime())
     expect(last.x).toBe(100)
   })
 
   it('projectStart === projectEnd → 空配列 (ゼロ除算ガード)', () => {
-    const same = d(2025, 6, 1) // 月初でも空を返す
+    const same = utcD(2025, 6, 1) // 月初でも空を返す
     const result = monthBoundaries(same, same)
     expect(result).toHaveLength(0)
   })

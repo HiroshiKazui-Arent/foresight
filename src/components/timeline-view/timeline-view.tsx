@@ -37,11 +37,13 @@ export function TimelineView({ milestone, tasks, projectId, today }: Props) {
           <StatusPill status={milestone.progressData.status} />
           <DaysPill days={milestone.progressData.daysDeviation} />
         </div>
-        <GanttBar
-          actualPct={milestone.progressData.actualPct}
-          scheduledPct={milestone.progressData.scheduledPct}
-          status={milestone.progressData.status}
-        />
+        <div className="relative h-4">
+          <GanttBar
+            actualPct={milestone.progressData.actualPct}
+            scheduledPct={milestone.progressData.scheduledPct}
+            status={milestone.progressData.status}
+          />
+        </div>
       </div>
 
       {/* タスク一覧 */}
@@ -120,7 +122,14 @@ function TaskRow({ task, milestoneScope, projectId, today }: TaskRowProps) {
           →
         </Link>
         <div className="relative min-w-0 flex-1">
-          <div style={{ marginLeft: `${offsetPct}%`, width: `${widthPct}%` }}>
+          <div
+            style={{
+              position: 'relative',
+              marginLeft: `${offsetPct}%`,
+              width: `${widthPct}%`,
+              height: '16px',
+            }}
+          >
             <GanttBar
               actualPct={task.actualPct}
               scheduledPct={task.scheduledPct}
@@ -171,7 +180,14 @@ function TodoList({ todos, taskScope, today }: TodoListProps) {
                     aria-label="今日"
                   />
                 )}
-                <div style={{ marginLeft: `${tOffset}%`, width: `${tWidth}%` }}>
+                <div
+                  style={{
+                    position: 'relative',
+                    marginLeft: `${tOffset}%`,
+                    width: `${tWidth}%`,
+                    height: '16px',
+                  }}
+                >
                   <GanttBar
                     actualPct={todo.progressData.actualPct}
                     scheduledPct={todo.progressData.scheduledPct}

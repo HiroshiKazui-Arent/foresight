@@ -39,7 +39,7 @@ export function TimelineHeader({ projectStart, projectEnd, today }: TimelineHead
           className="absolute top-0 text-xs text-gray-500"
           style={{ left: `${x}%` }}
         >
-          {date.getMonth() + 1}月
+          {date.getUTCMonth() + 1}月
         </span>
       ))}
 
