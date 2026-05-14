@@ -3,6 +3,7 @@ export type ProgressStatus = 'completed' | 'on-track' | 'delayed' | 'warning' | 
 export type RenderStatus =
   | 'scheduled'
   | 'completed'
+  | 'ahead-of-schedule'
   | 'delayed-pre-deadline'
   | 'overdue-past-deadline'
   | 'not-started-overdue'

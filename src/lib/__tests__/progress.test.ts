@@ -383,7 +383,7 @@ describe('calcRenderStatus (Todo 5状態)', () => {
 
 // ─── calcAggregateRenderStatus ───────────────────────────────────────────────
 
-describe('calcAggregateRenderStatus (親集約 5状態)', () => {
+describe('calcAggregateRenderStatus (親集約 6状態)', () => {
   const startDate = new Date('2026-05-01')
   const endDate = new Date('2026-05-31')
 
@@ -406,12 +406,12 @@ describe('calcAggregateRenderStatus (親集約 5状態)', () => {
     )
   })
 
-  it('actualPct=0, anyChildStarted=true → not-started-overdue にならない', () => {
+  it('actualPct=0, anyChildStarted=true → delayed-pre-deadline (not-started-overdue にならない)', () => {
     const parent = { startDate, endDate, actualPct: 0 }
-    // anyChildStarted=true のとき、actualPct=0 でも not-started-overdue ではない
-    // (この場合 delayed-pre-deadline になる — scheduledPct > 0 かつ actualPct < scheduledPct)
+    // anyChildStarted=true のとき step 2 を skip、scheduledPct > 0 かつ actualPct < scheduledPct で
+    // step 6 (delayed-pre-deadline) に落ちる
     const result = calcAggregateRenderStatus(parent, new Date('2026-05-10'), true)
-    expect(result).not.toBe('not-started-overdue')
+    expect(result).toBe('delayed-pre-deadline')
   })
 
   // 3. actualPct=100 → 'completed'
@@ -433,17 +433,59 @@ describe('calcAggregateRenderStatus (親集約 5状態)', () => {
     )
   })
 
-  // 5. actualPct >= scheduledPct → 'completed' (緑: 予定通り or 前倒し)
-  it('actualPct >= scheduledPct → completed', () => {
-    // today = 2026-05-16: scheduledPct ≈ 50%, actualPct=60 → completed
+  // 5. actualPct >= scheduledPct (かつ actualPct < 100, today <= endDate) → 'ahead-of-schedule'
+  it('actualPct >= scheduledPct → ahead-of-schedule', () => {
+    // today = 2026-05-16: scheduledPct ≈ 50%, actualPct=60 → ahead-of-schedule
     const parent = { startDate, endDate, actualPct: 60 }
+    expect(calcAggregateRenderStatus(parent, new Date('2026-05-16'), true)).toBe(
+      'ahead-of-schedule',
+    )
+  })
+
+  it('actualPct === scheduledPct → ahead-of-schedule (today=startDate: scheduledPct=0, actualPct=0)', () => {
+    // today=05-01 (startDate): elapsed=0, total=30 → scheduledPct=0; actualPct=0 >= 0 → ahead-of-schedule
+    const parentOnStart = { startDate, endDate, actualPct: 0 }
+    expect(calcAggregateRenderStatus(parentOnStart, startDate, true)).toBe('ahead-of-schedule')
+  })
+
+  // M-04 新規テスト
+  it('actualPct=100 → completed (ahead-of-schedule より優先)', () => {
+    // step 3 で completed を返す (step 5 より前)
+    const parent = { startDate, endDate, actualPct: 100 }
     expect(calcAggregateRenderStatus(parent, new Date('2026-05-16'), true)).toBe('completed')
   })
 
-  it('actualPct === scheduledPct → completed (today=startDate: scheduledPct=0, actualPct=0)', () => {
-    // today=05-01 (startDate): elapsed=0, total=30 → scheduledPct=0; actualPct=0 >= 0 → completed
-    const parentOnStart = { startDate, endDate, actualPct: 0 }
-    expect(calcAggregateRenderStatus(parentOnStart, startDate, true)).toBe('completed')
+  it('actualPct=99.999, scheduledPct=50 → ahead-of-schedule', () => {
+    // today=05-16: scheduledPct≈50%, actualPct=99.999 >= 50 → ahead-of-schedule
+    const parent = { startDate, endDate, actualPct: 99.999 }
+    expect(calcAggregateRenderStatus(parent, new Date('2026-05-16'), true)).toBe(
+      'ahead-of-schedule',
+    )
+  })
+
+  it('actualPct = scheduledPct (境界): 前倒しに含む → ahead-of-schedule', () => {
+    // today=05-16: scheduledPct≈50%, actualPct=50 (ぴったり) → ahead-of-schedule
+    const parent = { startDate, endDate, actualPct: 50 }
+    // calcScheduledPct(05-01, 05-31, 05-16) = 15/30*100 = 50
+    expect(calcAggregateRenderStatus(parent, new Date('2026-05-16'), true)).toBe(
+      'ahead-of-schedule',
+    )
+  })
+
+  it('actualPct = scheduledPct - 0.001 (境界下側) → delayed-pre-deadline', () => {
+    // scheduledPct=50, actualPct=49.999 < 50 → delayed-pre-deadline
+    const parent = { startDate, endDate, actualPct: 49.999 }
+    expect(calcAggregateRenderStatus(parent, new Date('2026-05-16'), true)).toBe(
+      'delayed-pre-deadline',
+    )
+  })
+
+  it('actualPct=80, today > endDate → overdue-past-deadline (step 4 が step 5 より優先)', () => {
+    // step 4: today > endDate → overdue-past-deadline (step 5 の ahead-of-schedule より前)
+    const parent = { startDate, endDate, actualPct: 80 }
+    expect(calcAggregateRenderStatus(parent, new Date('2026-06-10'), true)).toBe(
+      'overdue-past-deadline',
+    )
   })
 
   it('today > endDate, actualPct=0, anyChildStarted=false → not-started-overdue (overdue より優先)', () => {
@@ -462,11 +504,19 @@ describe('calcAggregateRenderStatus (親集約 5状態)', () => {
     )
   })
 
-  it('actualPct=0.001 (= threshold), anyChildStarted=false → not-started-overdue にならない', () => {
-    // 0.001 は閾値ちょうど: < 0.001 でないので not-started-overdue にならない
+  it('actualPct=0.001 (= threshold), anyChildStarted=false → delayed-pre-deadline', () => {
+    // 0.001 は閾値ちょうど: < 0.001 でないので step 2 を skip。scheduledPct≈47% > 0.001 のため
+    // step 6 (delayed-pre-deadline) に落ちる
     const parent = { startDate, endDate, actualPct: 0.001 }
     const result = calcAggregateRenderStatus(parent, new Date('2026-05-15'), false)
-    expect(result).not.toBe('not-started-overdue')
+    expect(result).toBe('delayed-pre-deadline')
+  })
+
+  it('today === endDate, actualPct=0, anyChildStarted=false → not-started-overdue (境界: today > endDate ではない)', () => {
+    // step 2 (actualPct < threshold && !anyChildStarted) が step 4 (today > endDate) より優先。
+    // today === endDate は strict > を満たさないため、step 4 をスキップして step 2 が発火
+    const parent = { startDate, endDate, actualPct: 0 }
+    expect(calcAggregateRenderStatus(parent, endDate, false)).toBe('not-started-overdue')
   })
 
   // 6. actualPct < scheduledPct (かつ今日 <= endDate) → 'delayed-pre-deadline'

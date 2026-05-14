@@ -107,13 +107,13 @@ export function calcRenderStatus(
 }
 
 /**
- * Task/Milestone の集約描画ステータスを 5状態で返す。
+ * Task/Milestone/Project の集約描画ステータスを 6状態で返す。
  * 判定順序（上から優先）:
  * 1. today < startDate → 'scheduled'
  * 2. actualPct=0, !anyChildStarted, today >= startDate → 'not-started-overdue'
- * 3. actualPct=100 → 'completed'
+ * 3. actualPct=100 → 'completed' (ahead-of-schedule より優先)
  * 4. today > endDate → 'overdue-past-deadline'
- * 5. actualPct >= scheduledPct → 'completed' (緑: 予定通り or 前倒し)
+ * 5. actualPct >= scheduledPct → 'ahead-of-schedule' (前倒し進行中: 緑実線+灰残り)
  * 6. それ以外 → 'delayed-pre-deadline'
  */
 export function calcAggregateRenderStatus(
@@ -126,8 +126,7 @@ export function calcAggregateRenderStatus(
   if (parent.actualPct === 100) return 'completed'
   if (today > parent.endDate) return 'overdue-past-deadline'
   const scheduledPct = calcScheduledPct(parent.startDate, parent.endDate, today)
-  // actualPct >= scheduledPct = 予定通り or 前倒し → GanttBar では緑 ('completed' を緑の意味で使用)
-  if (parent.actualPct >= scheduledPct) return 'completed'
+  if (parent.actualPct >= scheduledPct) return 'ahead-of-schedule'
   return 'delayed-pre-deadline'
 }
 
