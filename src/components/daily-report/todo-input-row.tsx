@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Todo } from '@prisma/client'
+import { StartedCheckbox } from './started-checkbox'
 import { CompletedCheckbox } from './completed-checkbox'
 import { StatusPill } from '@/components/status-pill'
 import { DaysPill } from '@/components/days-pill'
@@ -22,9 +23,8 @@ interface TodoInputRowProps {
  * 日報入力モードの ToDo 行。
  *
  * V1 ツリービューの TodoRow と同じ 5 カラム grid レイアウトに統一し、
- * 進捗 % ピル (ProgressPill) のみ完了チェックボックス (CompletedCheckbox) に
- * 差し替える。バー・ステータス・遅延日数は V1 と同様に表示し、
- * 「日報とプロジェクト表示の違いは進捗度 or 完了チェックボックスだけ」とする。
+ * 進捗 % ピル (ProgressPill) のみ「開始 / 完了」デュアルチェックボックス
+ * (44px × 2) に差し替える。バー・ステータス・遅延日数は V1 と同様。
  */
 export function TodoInputRow({
   todo,
@@ -34,47 +34,72 @@ export function TodoInputRow({
   projectEnd,
 }: TodoInputRowProps) {
   const router = useRouter()
-  const [completed, setCompleted] = useState(todo.completed)
-  // Step 5 でデュアルチェックボックス UI に置き換えるまでの暫定 started 状態管理
   const [started, setStarted] = useState(todo.started)
+  const [completed, setCompleted] = useState(todo.completed)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // useRef で committed 値を管理: 楽観的更新の rollback に stale closure が起きない
+  const committedRef = useRef({ started: todo.started, completed: todo.completed })
+  // React state の非同期フラッシュより先行する同期ガード
+  const isSavingRef = useRef(false)
+  // アンマウント後の setTimeout によるメモリリークを防ぐ
+  const mountedRef = useRef(true)
+  useEffect(
+    () => () => {
+      mountedRef.current = false
+    },
+    [],
+  )
 
-  async function handleChange(checked: boolean) {
-    if (saving) return
-    // 完了チェックを入れると開始も自動的に true になる
-    const nextStarted = checked || started
-    const previousCompleted = completed
-    const previousStarted = started
-    setCompleted(checked)
+  async function save(nextStarted: boolean, nextCompleted: boolean) {
+    if (isSavingRef.current) return
+    isSavingRef.current = true
+    const prev = { ...committedRef.current }
+    committedRef.current = { started: nextStarted, completed: nextCompleted }
     setStarted(nextStarted)
+    setCompleted(nextCompleted)
     setSaving(true)
     setSaved(false)
     setError(null)
     try {
       await submitDailyReport(todo.id, projectId, {
         started: nextStarted,
-        completed: checked,
+        completed: nextCompleted,
       })
       setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      setTimeout(() => {
+        if (mountedRef.current) setSaved(false)
+      }, 2000)
       router.refresh()
     } catch {
-      setCompleted(previousCompleted)
-      setStarted(previousStarted)
+      committedRef.current = prev
+      setStarted(prev.started)
+      setCompleted(prev.completed)
       setError('保存に失敗しました')
     } finally {
+      isSavingRef.current = false
       setSaving(false)
     }
   }
 
-  // ステータス・バー・遅延日数は最新の completed 状態に基づいて算出する
-  const progress = buildTodoProgressData({ ...todo, completed }, today)
+  function handleStartedChange(checked: boolean) {
+    // un-start のとき completed も false に戻す (DB CHECK と整合)
+    const nextCompleted = checked ? completed : false
+    save(checked, nextCompleted)
+  }
+
+  function handleCompletedChange(checked: boolean) {
+    // 完了にするとき started を自動 true にする
+    const nextStarted = checked ? true : started
+    save(nextStarted, checked)
+  }
+
+  const progress = buildTodoProgressData({ ...todo, started, completed }, today)
 
   return (
     <div className="flex flex-col gap-0.5 py-0.5">
-      {/* 5カラムGrid (TodoRow と同一テンプレート): name / 完了チェックボックス / status / days / bar */}
+      {/* 5カラムGrid (TodoRow と同一テンプレート): name / checkbox×2 / status / days / bar */}
       <div
         style={{
           display: 'grid',
@@ -87,12 +112,18 @@ export function TodoInputRow({
           <span className="min-w-0 flex-1 truncate text-sm text-gray-700">{todo.name}</span>
         </div>
 
-        {/* 2. 完了チェックボックス (進捗 % ピルの代わり) */}
-        <div className="flex items-center justify-start px-1">
-          <CompletedCheckbox checked={completed} onChange={handleChange} disabled={saving} />
-          <span className="ml-1 text-xs text-gray-400" aria-live="polite">
-            {saving ? '保存中' : saved ? '✓' : ''}
-          </span>
+        {/* 2. 開始/完了チェックボックス (88px = 44px × 2) */}
+        <div className="flex items-center">
+          <div className="flex w-11 items-center justify-center">
+            <StartedCheckbox checked={started} onChange={handleStartedChange} disabled={saving} />
+          </div>
+          <div className="flex w-11 items-center justify-center">
+            <CompletedCheckbox
+              checked={completed}
+              onChange={handleCompletedChange}
+              disabled={saving || !started}
+            />
+          </div>
         </div>
 
         {/* 3. ステータス */}
@@ -120,11 +151,16 @@ export function TodoInputRow({
         </div>
       </div>
 
-      {error && (
-        <span aria-live="polite" className="pl-[60px] text-xs text-red-600">
-          {error}
-        </span>
-      )}
+      {/* 保存フィードバック */}
+      <span aria-live="polite" className="pl-[60px] text-xs">
+        {error ? (
+          <span className="text-red-600">{error}</span>
+        ) : saving ? (
+          <span className="text-gray-400">保存中</span>
+        ) : saved ? (
+          <span className="text-gray-400">✓</span>
+        ) : null}
+      </span>
     </div>
   )
 }
