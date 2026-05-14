@@ -189,6 +189,88 @@ function makeProject(overrides: {
   }
 }
 
+// TC-CHAIN-001〜003: 遅延伝播テスト (TC-CHAIN-004 は forecast.ts 未実装のためスコープ外)
+describe('TC-CHAIN-001〜003: 遅延伝播 (chain propagation)', () => {
+  const today = new Date('2026-01-15')
+
+  it('TC-CHAIN-001: 未完了 overdue ToDo を含む Task で calcCompletionDate が today 以降を返す', () => {
+    // actualPct=50%, elapsed=14日(Jan1→Jan15, past endDate Jan10)
+    // progressPerDay=50/14, remaining=14日 → completionDate≈Jan29 > today(Jan15)
+    const completionDate = calcCompletionDate(
+      50,
+      new Date('2026-01-01'),
+      new Date('2026-01-10'),
+      today,
+    )
+    expect(completionDate).not.toBeNull()
+    expect(completionDate!.getTime()).toBeGreaterThanOrEqual(today.getTime())
+  })
+
+  it('TC-CHAIN-002: Task スリップが warningMilestone の warningTask.completionDate に反映される', () => {
+    const completedTodo = makeTodo({
+      id: 'chain2-done',
+      completed: true,
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-01-10'),
+    })
+    const overdueTodo = makeTodo({
+      id: 'chain2-overdue',
+      completed: false,
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-01-10'),
+    })
+    const task = makeTask({
+      todos: [completedTodo, overdueTodo],
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-01-10'),
+    })
+    const milestone = makeMilestone({
+      tasks: [task],
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-01-10'),
+    })
+    const project = makeProject({ milestones: [milestone] })
+    const result = buildDashboardData(project, today)
+
+    expect(result.warningMilestones).toHaveLength(1)
+    expect(result.warningMilestones[0].warningTasks).toHaveLength(1)
+    const warningTask = result.warningMilestones[0].warningTasks[0]
+    expect(warningTask.completionDate).not.toBeNull()
+    expect(warningTask.completionDate!.getTime()).toBeGreaterThan(new Date('2026-01-10').getTime())
+  })
+
+  it('TC-CHAIN-003: Milestone スリップが Project の completionDate に反映される', () => {
+    const completedTodo = makeTodo({
+      id: 'chain3-done',
+      completed: true,
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-01-10'),
+    })
+    const overdueTodo = makeTodo({
+      id: 'chain3-overdue',
+      completed: false,
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-01-10'),
+    })
+    const task = makeTask({
+      todos: [completedTodo, overdueTodo],
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-01-10'),
+    })
+    const milestone = makeMilestone({
+      tasks: [task],
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-01-10'),
+    })
+    const project = makeProject({ milestones: [milestone] })
+    const result = buildDashboardData(project, today)
+
+    expect(result.slipDays).toBeGreaterThan(0)
+    expect(result.completionDate).not.toBeNull()
+    expect(result.completionDate!.getTime()).toBeGreaterThan(result.endDate.getTime())
+  })
+})
+
 describe('buildDashboardData (M-01)', () => {
   const today = new Date('2026-01-15')
 
