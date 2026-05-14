@@ -164,6 +164,21 @@ Task/Milestone レベルの重みは期間日数を使用。
 | 警告       | ⚠        | 進行中で 乖離 ≤ -20%      | 赤     |
 | 予定       | ○        | 未着手かつ予定通り        | グレー |
 
+##### 集約バー RenderStatus 6 状態 (v3.3 / M-04 で 'ahead-of-schedule' 追加)
+
+`calcAggregateRenderStatus` の判定順序 (上から評価し最初にマッチしたものを返す):
+
+| #   | 状態                    | 条件                                            | 描画                                                 |
+| --- | ----------------------- | ----------------------------------------------- | ---------------------------------------------------- |
+| 1   | `scheduled`             | `today < startDate`                             | 灰一面                                               |
+| 2   | `not-started-overdue`   | `actualPct < 0.001 && !anyChildStarted`         | 薄赤ハッチ + 赤延伸 (today まで)                     |
+| 3   | `completed`             | `actualPct === 100`                             | 緑一面                                               |
+| 4   | `overdue-past-deadline` | `today > endDate`                               | amber + 橙ハッチ + 赤延伸 (today まで)               |
+| 5   | **`ahead-of-schedule`** | `actualPct >= scheduledPct` (`100 > actualPct`) | **緑実線 [0..actualPct%] + 灰 [..100%]** (v3.3 新規) |
+| 6   | `delayed-pre-deadline`  | それ以外 (`actualPct < scheduledPct`)           | amber + 橙ハッチ + 灰未来                            |
+
+「前倒し」 (#5) は集約バー (Task / Milestone / Project) で `actualPct >= scheduledPct` のとき適用。緑実線が `actualPct%` 位置まで伸び、今日線 (`scheduledPct%` 位置) を越えて右にはみ出して見える。バー位置は `rowStart〜rowEnd` で完結し延伸しない。
+
 #### ToDo — 4段階(v3.1 / M-01 で簡素化、警告は持たない)
 
 | ステータス | 条件                                                      |
@@ -172,6 +187,8 @@ Task/Milestone レベルの重みは期間日数を使用。
 | 遅延       | `completed: false` AND 期日まで 3 日未満(期日超過含む)    |
 | 進行中     | `completed: false` AND 期間内(開始日 ≤ 今日 < 期日 - 3日) |
 | 予定       | `completed: false` AND 開始日 > 今日                      |
+
+**ToDo の `ahead-of-schedule` 不到達 (v3.3 / M-04 注記):** ToDo の `actualPct` は `completed ? 100 : 0` (M-01 確定事項) のため、`completed=true` (actualPct=100) → 'completed' に分岐し、`completed=false` (actualPct=0) → 'delayed-pre-deadline' 等に分岐。`'ahead-of-schedule'` には**構造上到達しない**。仕様自体は全階層共通として定義するが、実装影響は集約バーのみ。
 
 ### 4.5 完了予測日
 
@@ -864,6 +881,7 @@ infra/terraform/
 - [x] **【v3.2 / M-03】GanttBar 5状態視覚化: scheduled / completed / delayed-pre-deadline / overdue-past-deadline / not-started-overdue**
 - [x] **【v3.2 / M-03】State 3/4 ではバーが rowEnd を超えて today まで延伸する(意図的設計)。タイムライン軸 projectEnd は不変**
 - [x] **【v3.2 / M-03】completed=true は started=true を必須とする(DB CHECK 制約で強制)**
+- [x] **【v3.3 / M-04】集約バー (Task/Milestone/Project) で `'ahead-of-schedule'` 状態を追加。`actualPct >= scheduledPct && actualPct < 100` で前倒し進行中として描画 (緑実線 + 灰)。ToDo は構造上到達しない**
 
 ### 10.2 Pending(Phase 5 以降)
 
@@ -898,3 +916,4 @@ infra/terraform/
 | 2026-05-12 | v3.0 | プロジェクトの位置づけを「AI 駆動開発のキャッチアップ」に明確化。認証を Google OAuth から Credentials(メール+パスワード)に変更。本番先を社内サーバーから **AWS ECS Fargate + RDS** に変更。**Terraform** で IaC 化。Phase 4 として AWS デプロイを切り出し                                                                                                                                                                                                                                                                                                                                                                                                        |
 | 2026-05-13 | v3.1 | **M-01**: 日報入力を完了チェックボックスのみに変更。`Todo.actualPct` / `DailyReport.actualPct` を削除。ToDo ステータスを 4 段階に簡素化(警告は ToDo レベルで持たない)。**M-02**: `TodoTemplate` モデル追加、Task 作成時に 6 件の ToDo を自動展開                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | 2026-05-14 | v3.2 | **M-03**: ToDo に `started` (Boolean) / `startedAt` (DateTime?) / `completedAt` (DateTime?) を追加。日報入力をデュアルチェックボックス化(開始 + 完了)。GanttBar を 5 状態視覚化(scheduled / completed / delayed-pre-deadline / overdue-past-deadline / not-started-overdue)。State 3/4 ではバーが rowEnd を超えて today まで延伸する(意図的設計、v3.1 以前の「バーが今日線をまたぐのはバグ」判断とは別物)。タイムライン軸 projectEnd は不変。DB CHECK 制約 `completed=true → started=true` を追加。**注意:** v3.1 以前の `startedAt` / `completedAt` は migration 時点の `createdAt` / `updatedAt` からの推定値であり、実際の開始/完了日時とは異なる可能性がある |
+| 2026-05-15 | v3.3 | **M-04**: `RenderStatus` に `'ahead-of-schedule'` (前倒し進行中、6 状態目) を追加。集約バー (Task/Milestone/Project) で `actualPct >= scheduledPct && actualPct < 100` のとき緑実線 [0..actualPct%] + 灰 [actualPct..100%] で描画。緑実線が今日線 (scheduledPct 位置) を越えて右にはみ出す。`calcAggregateRenderStatus` の判定順序を 6 ステップに改訂 (旧 `'completed'` 返却を `'ahead-of-schedule'` に置換、`actualPct === 100` は引き続き最優先で `'completed'`)。ToDo は `actualPct ∈ {0, 100}` 制約により構造上到達しない (`calcRenderStatus` は不変)。StatusPill に「先行」ラベル (緑淡色) を追加                                                           |
