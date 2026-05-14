@@ -9,6 +9,98 @@ function addDays(date: Date, days: number): Date {
   return d
 }
 
+async function seedDemoMilestone(projectId: string, today: Date) {
+  const ms3Start = addDays(today, -20)
+  const ms3End = addDays(today, 20)
+  const nextOrder = await prisma.milestone.count({ where: { projectId } })
+  const ms3 = await prisma.milestone.create({
+    data: {
+      projectId,
+      name: '5状態デモ(M-03)',
+      startDate: ms3Start,
+      endDate: ms3End,
+      order: nextOrder,
+    },
+  })
+
+  const taskDemo = await prisma.task.create({
+    data: {
+      milestoneId: ms3.id,
+      name: 'GanttBar 5状態確認',
+      startDate: ms3Start,
+      endDate: ms3End,
+      order: 0,
+    },
+  })
+
+  await Promise.all([
+    prisma.todo.create({
+      data: {
+        taskId: taskDemo.id,
+        name: '[State0] 予定 — 開始日が未来',
+        weight: 20,
+        started: false,
+        completed: false,
+        startDate: addDays(today, 5),
+        endDate: addDays(today, 15),
+        order: 0,
+      },
+    }),
+    prisma.todo.create({
+      data: {
+        taskId: taskDemo.id,
+        name: '[State1] 完了 — 期日内完了',
+        weight: 20,
+        started: true,
+        completed: true,
+        startedAt: addDays(today, -18),
+        completedAt: addDays(today, -8),
+        startDate: addDays(today, -20),
+        endDate: addDays(today, -5),
+        order: 1,
+      },
+    }),
+    prisma.todo.create({
+      data: {
+        taskId: taskDemo.id,
+        name: '[State2] 遅延(期日前) — 進捗遅れ',
+        weight: 20,
+        started: true,
+        completed: false,
+        startedAt: addDays(today, -10),
+        startDate: addDays(today, -10),
+        endDate: addDays(today, 10),
+        order: 2,
+      },
+    }),
+    prisma.todo.create({
+      data: {
+        taskId: taskDemo.id,
+        name: '[State3] 超過 — 期日を過ぎて未完',
+        weight: 20,
+        started: true,
+        completed: false,
+        startedAt: addDays(today, -15),
+        startDate: addDays(today, -15),
+        endDate: addDays(today, -3),
+        order: 3,
+      },
+    }),
+    prisma.todo.create({
+      data: {
+        taskId: taskDemo.id,
+        name: '[State4] 未着 — 開始日超過・未開始',
+        weight: 20,
+        started: false,
+        completed: false,
+        startDate: addDays(today, -8),
+        endDate: addDays(today, 5),
+        order: 4,
+      },
+    }),
+  ])
+}
+
 async function main() {
   const passwordHash = await bcrypt.hash('password123', 12)
 
@@ -58,9 +150,17 @@ async function main() {
 
   const existing = await prisma.project.findFirst({
     where: { name: 'フォーサイト開発プロジェクト(サンプル)' },
+    include: { milestones: true },
   })
   if (existing) {
-    console.log('Seed: テストプロジェクトは既に存在します。スキップ。')
+    // M-03: 5状態デモミルストーンが未存在なら追加
+    const demoMsExists = existing.milestones.some((m) => m.name === '5状態デモ(M-03)')
+    if (!demoMsExists) {
+      await seedDemoMilestone(existing.id, today)
+      console.log('Seed: 5状態デモ(M-03) を追加しました。')
+    } else {
+      console.log('Seed: テストプロジェクトは既に存在します。スキップ。')
+    }
     console.log('Seed complete:', { admin: admin.email, pm: pm.email })
     return
   }
@@ -112,7 +212,10 @@ async function main() {
         taskId: task1_1.id,
         name: '利用者インタビュー',
         weight: 33,
+        started: true,
         completed: true,
+        startedAt: ms1Start,
+        completedAt: addDays(ms1Start, 5),
         startDate: ms1Start,
         endDate: addDays(ms1Start, 5),
         order: 0,
@@ -123,7 +226,10 @@ async function main() {
         taskId: task1_1.id,
         name: 'ペルソナ定義',
         weight: 33,
+        started: true,
         completed: true,
+        startedAt: addDays(ms1Start, 5),
+        completedAt: addDays(ms1Start, 10),
         startDate: addDays(ms1Start, 5),
         endDate: addDays(ms1Start, 10),
         order: 1,
@@ -208,7 +314,7 @@ async function main() {
     },
   })
 
-  // ── Milestone 2 ──
+  // ── Milestone 2 ──  (M-03: 5状態デモ用)
   const ms2 = await prisma.milestone.create({
     data: {
       projectId: project.id,
@@ -286,11 +392,14 @@ async function main() {
     }),
   ])
 
+  // ── Milestone 3 ── (M-03: GanttBar 5状態デモ用)
+  await seedDemoMilestone(project.id, today)
+
   console.log('Seed complete:', {
     admin: admin.email,
     pm: pm.email,
     project: project.name,
-    milestones: 2,
+    milestones: 3,
     tasks: [task1_1.name, task1_2.name, task2_1.name, task2_2.name],
   })
 }
