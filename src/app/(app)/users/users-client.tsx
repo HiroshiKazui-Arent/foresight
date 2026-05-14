@@ -43,6 +43,12 @@ const STATUS_LABEL: Record<string, string> = {
   EXPIRED: '期限切れ',
 }
 
+// UTC 年月日を YYYY/M/D 形式に変換 (hydration mismatch 防止)
+function fmtDate(d: Date | string): string {
+  const dt = typeof d === 'string' ? new Date(d) : d
+  return `${dt.getUTCFullYear()}/${dt.getUTCMonth() + 1}/${dt.getUTCDate()}`
+}
+
 export function UsersClient({ users, invitations }: UsersClientProps) {
   const router = useRouter()
 
@@ -132,9 +138,7 @@ export function UsersClient({ users, invitations }: UsersClientProps) {
                 <tr key={u.id} className="border-b last:border-0">
                   <td className="py-2">{u.name}</td>
                   <td className="py-2 text-gray-600">{u.email}</td>
-                  <td className="py-2 text-gray-400">
-                    {new Date(u.createdAt).toLocaleDateString('ja-JP')}
-                  </td>
+                  <td className="py-2 text-gray-400">{fmtDate(u.createdAt)}</td>
                 </tr>
               ))}
             </tbody>
@@ -239,9 +243,7 @@ export function UsersClient({ users, invitations }: UsersClientProps) {
                       {STATUS_LABEL[inv.status] ?? inv.status}
                     </span>
                   </td>
-                  <td className="py-2 text-gray-400">
-                    {new Date(inv.expiresAt).toLocaleDateString('ja-JP')}
-                  </td>
+                  <td className="py-2 text-gray-400">{fmtDate(inv.expiresAt)}</td>
                   <td className="py-2 text-gray-600">{inv.project?.name ?? '—'}</td>
                   <td className="py-2 text-gray-600">{inv.invitedBy.name}</td>
                   <td className="py-2">
