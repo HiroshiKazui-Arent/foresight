@@ -7,6 +7,7 @@ type StatusPillProps =
 const renderStatusConfig: Record<RenderStatus, { label: string; className: string }> = {
   scheduled: { label: '予定', className: 'bg-gray-200 text-gray-700' },
   completed: { label: '完了', className: 'bg-green-700 text-white' },
+  'ahead-of-schedule': { label: '先行', className: 'bg-green-100 text-green-800' },
   'delayed-pre-deadline': { label: '遅延', className: 'bg-amber-400 text-white' },
   'overdue-past-deadline': { label: '超過', className: 'bg-red-600 text-white' },
   'not-started-overdue': { label: '未着', className: 'bg-red-800 text-white' },

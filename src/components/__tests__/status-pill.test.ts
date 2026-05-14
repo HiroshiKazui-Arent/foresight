@@ -7,6 +7,7 @@ import type { RenderStatus } from '@/types/progress'
 const allRenderStatuses: RenderStatus[] = [
   'scheduled',
   'completed',
+  'ahead-of-schedule',
   'delayed-pre-deadline',
   'overdue-past-deadline',
   'not-started-overdue',
@@ -64,7 +65,31 @@ describe('StatusPill: RenderStatus 5状態', () => {
     expect(label.length).toBeLessThanOrEqual(3)
   })
 
-  it('全 5 状態がエラーなくレンダリングできる', () => {
+  it('ahead-of-schedule → 「先行」緑淡色 (bg-green-100)', () => {
+    const html = renderToStaticMarkup(
+      createElement(StatusPill, { renderStatus: 'ahead-of-schedule' as RenderStatus }),
+    )
+    expect(html).toContain('先行')
+    expect(html).toContain('bg-green-100')
+  })
+
+  it('ahead-of-schedule → text-green-800 クラスを含む', () => {
+    const html = renderToStaticMarkup(
+      createElement(StatusPill, { renderStatus: 'ahead-of-schedule' as RenderStatus }),
+    )
+    expect(html).toContain('text-green-800')
+  })
+
+  it('「先行」ラベルは 3 文字以内 (60px カラム制約)', () => {
+    const html = renderToStaticMarkup(
+      createElement(StatusPill, { renderStatus: 'ahead-of-schedule' as RenderStatus }),
+    )
+    const match = html.match(/>([^<]+)<\/span>/)
+    const label = match?.[1] ?? ''
+    expect(label.length).toBeLessThanOrEqual(3)
+  })
+
+  it('全 6 状態がエラーなくレンダリングできる', () => {
     for (const rs of allRenderStatuses) {
       expect(() =>
         renderToStaticMarkup(createElement(StatusPill, { renderStatus: rs })),

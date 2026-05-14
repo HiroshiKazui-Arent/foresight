@@ -150,9 +150,15 @@ export function buildMilestoneProgressData(
 export function buildProjectProgressData(
   milestones: MilestoneForCalc[],
   today: Date,
-): ProgressBarData & { startDate?: Date; endDate?: Date } {
+): ProgressBarData & { startDate?: Date; endDate?: Date; renderStatus: RenderStatus } {
   if (milestones.length === 0) {
-    return { actualPct: 0, scheduledPct: 0, status: 'scheduled', daysDeviation: 0 }
+    return {
+      actualPct: 0,
+      scheduledPct: 0,
+      status: 'scheduled',
+      daysDeviation: 0,
+      renderStatus: 'scheduled',
+    }
   }
 
   const milestoneData = milestones.map((ms) => {
@@ -182,5 +188,17 @@ export function buildProjectProgressData(
   const durationDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
   const daysDeviation = calcDaysDeviation(actualPct, scheduledPct, durationDays)
 
-  return { actualPct, scheduledPct, status, daysDeviation, startDate, endDate }
+  // anyChildStarted: Milestone → tasks → todos の started を再帰的に OR 集約。
+  // 空配列 (tasks=[] や todos=[]) は false 扱い: 「子が存在しないなら誰も着手していない」
+  // が仕様。これにより actualPct=0 のとき not-started-overdue 判定が正しく走る。
+  const anyChildStarted = milestones.some((ms) =>
+    ms.tasks.some((t) => t.todos.some((td) => td.started ?? false)),
+  )
+  const renderStatus = calcAggregateRenderStatus(
+    { startDate, endDate, actualPct },
+    today,
+    anyChildStarted,
+  )
+
+  return { actualPct, scheduledPct, status, daysDeviation, startDate, endDate, renderStatus }
 }

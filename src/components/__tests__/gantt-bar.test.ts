@@ -605,6 +605,99 @@ describe('GanttBar RenderStatus-driven 5状態描画', () => {
     expect(html).toContain('#ef4444')
   })
 
+  // State 5: ahead-of-schedule
+  it('ahead-of-schedule, actualPct=80: bg-green-500 含む', () => {
+    const html = renderToStaticMarkup(
+      makeRS({
+        renderStatus: 'ahead-of-schedule' as RenderStatus,
+        actualPct: 80,
+        scheduledPct: 50,
+      }),
+    )
+    expect(html).toContain('bg-green-500')
+  })
+
+  it('ahead-of-schedule, actualPct=80: bg-gray-100 含む (残り 20% 灰)', () => {
+    const html = renderToStaticMarkup(
+      makeRS({
+        renderStatus: 'ahead-of-schedule' as RenderStatus,
+        actualPct: 80,
+        scheduledPct: 50,
+      }),
+    )
+    expect(html).toContain('bg-gray-100')
+  })
+
+  it('ahead-of-schedule: url(#hatch を含まない (SVG ハッチなし)', () => {
+    const html = renderToStaticMarkup(
+      makeRS({
+        renderStatus: 'ahead-of-schedule' as RenderStatus,
+        actualPct: 80,
+        scheduledPct: 50,
+      }),
+    )
+    expect(html).not.toContain('url(#hatch')
+  })
+
+  it('ahead-of-schedule: fill-red-500 を含まない (赤延伸なし)', () => {
+    const html = renderToStaticMarkup(
+      makeRS({
+        renderStatus: 'ahead-of-schedule' as RenderStatus,
+        actualPct: 80,
+        scheduledPct: 50,
+      }),
+    )
+    expect(html).not.toContain('fill-red-500')
+  })
+
+  it('ahead-of-schedule, actualPct=100 のとき gray div は出ない (aheadX=100)', () => {
+    // aheadX=100 なので bg-gray-100 の div は条件 (aheadX < 100) により出ない
+    const html = renderToStaticMarkup(
+      makeRS({
+        renderStatus: 'ahead-of-schedule' as RenderStatus,
+        actualPct: 100,
+        scheduledPct: 50,
+      }),
+    )
+    // bg-green-500 はある
+    expect(html).toContain('bg-green-500')
+    // bg-gray-100 はない (全幅緑)
+    expect(html).not.toContain('bg-gray-100')
+  })
+
+  it('ahead-of-schedule: wrapper が rowStart〜rowEnd で配置 (延伸なし)', () => {
+    const pS = new Date('2024-01-01')
+    const pE = new Date('2024-12-31')
+    const rS = new Date('2024-01-01')
+    const rE = new Date('2024-06-30')
+    const tod = new Date('2024-04-01')
+    const { width: normalWidth } = barOffsetWidth(rS, rE, pS, pE)
+    const html = renderToStaticMarkup(
+      createElement(GanttBar, {
+        projectStart: pS,
+        projectEnd: pE,
+        rowStart: rS,
+        rowEnd: rE,
+        today: tod,
+        actualPct: 80,
+        scheduledPct: 50,
+        renderStatus: 'ahead-of-schedule' as RenderStatus,
+      } as ComponentProps<typeof GanttBar>),
+    )
+    expect(html).toContain(`width:${normalWidth}%`)
+  })
+
+  it('ahead-of-schedule: aria-label に「先行」を含む', () => {
+    const html = renderToStaticMarkup(
+      makeRS({
+        renderStatus: 'ahead-of-schedule' as RenderStatus,
+        actualPct: 80,
+        scheduledPct: 50,
+      }),
+    )
+    expect(html).toContain('先行')
+  })
+
   // aria-label
   it('aria-label に RenderStatus 対応ラベルが含まれる', () => {
     const cases: [RenderStatus, string][] = [
@@ -613,6 +706,7 @@ describe('GanttBar RenderStatus-driven 5状態描画', () => {
       ['delayed-pre-deadline', '遅延'],
       ['overdue-past-deadline', '超過'],
       ['not-started-overdue', '未着'],
+      ['ahead-of-schedule', '先行'],
     ]
     for (const [rs, label] of cases) {
       const html = renderToStaticMarkup(makeRS({ renderStatus: rs }))

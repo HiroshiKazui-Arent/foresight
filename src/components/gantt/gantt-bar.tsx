@@ -84,6 +84,7 @@ const STATUS_LABELS: Record<ProgressStatus, string> = {
 const RENDER_STATUS_LABELS: Record<RenderStatus, string> = {
   scheduled: '予定',
   completed: '完了',
+  'ahead-of-schedule': '先行',
   'delayed-pre-deadline': '遅延',
   'overdue-past-deadline': '超過',
   'not-started-overdue': '未着',
@@ -289,6 +290,41 @@ function GanttBarRenderStatusVariant({
           style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' }}
         />
       )}
+
+      {/* State 5: ahead-of-schedule — green solid [0..aheadX%] + gray [aheadX..100%].
+          不変条件: calcAggregateRenderStatus step 4 が today > rowEnd を弾くため、
+          ahead-of-schedule は today <= rowEnd で発火する。よって isExtended は不要、
+          バー wrapper は rowStart〜rowEnd で完結する。 */}
+      {renderStatus === 'ahead-of-schedule' &&
+        (() => {
+          const aheadX = clampPct(actualPct)
+          return (
+            <>
+              <div
+                className="bg-green-500"
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  width: `${aheadX}%`,
+                  height: '100%',
+                }}
+              />
+              {aheadX < 100 && (
+                <div
+                  className="bg-gray-100"
+                  style={{
+                    position: 'absolute',
+                    left: `${aheadX}%`,
+                    top: 0,
+                    width: `${100 - aheadX}%`,
+                    height: '100%',
+                  }}
+                />
+              )}
+            </>
+          )
+        })()}
 
       {/* States 2/3/4: SVG-based rendering */}
       {(renderStatus === 'delayed-pre-deadline' ||
