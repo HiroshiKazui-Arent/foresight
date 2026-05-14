@@ -134,21 +134,32 @@ describe('GanttBar のレンダリング', () => {
 })
 
 // ---------------------------------------------------------------------------
-// 2 カラム Grid レイアウト
+// 5 カラム Grid レイアウト: name / progress / status / days / bar
 // ---------------------------------------------------------------------------
-describe('2 カラム Grid レイアウト', () => {
-  it('gridTemplateColumns が minmax(280px, auto) 1fr を含む', () => {
+describe('5 カラム Grid レイアウト (name / progress / status / days / bar)', () => {
+  it('gridTemplateColumns が "240px 88px 60px 56px 1fr" (各列固定幅 + バー 1fr) を含む', () => {
     const html = renderToStaticMarkup(makeRow())
-    expect(html).toContain('minmax(280px, auto) 1fr')
+    expect(html).toContain('grid-template-columns:240px 88px 60px 56px 1fr')
+  })
+
+  it('ProgressPill / StatusPill / DaysPill が個別のカラム (各 px-1) に配置される', () => {
+    const html = renderToStaticMarkup(makeRow())
+    // ピル間の右寄せ集約 (justify-end gap-2) は廃止し、各セルで justify-start に
+    expect(html).not.toContain('justify-end gap-2')
   })
 })
 
 // ---------------------------------------------------------------------------
-// インデント
+// インデント (ml-12 廃止 → ラベルセル内 pl-[60px] へ移動)
 // ---------------------------------------------------------------------------
-describe('インデント ml-12', () => {
-  it('最外ラッパーに ml-12 クラスが付く', () => {
+describe('インデント', () => {
+  it('最外ラッパーに ml-12 クラスが付かない (grid 起点を全行で揃えるため廃止)', () => {
     const html = renderToStaticMarkup(makeRow())
-    expect(html).toContain('ml-12')
+    expect(html).not.toContain('ml-12')
+  })
+
+  it('ラベルセル内に pl-[60px] (ToDo 階層インデント) が付く', () => {
+    const html = renderToStaticMarkup(makeRow())
+    expect(html).toContain('pl-[60px]')
   })
 })

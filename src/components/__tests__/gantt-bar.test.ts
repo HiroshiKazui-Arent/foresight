@@ -283,10 +283,12 @@ describe('GanttBar コンポーネント (新シグネチャ)', () => {
 })
 
 // ---------------------------------------------------------------------------
-// 新セマンティクス: today prop + overdue 赤塗り (Layer 3)
+// overdue 描画: status 色のハッチで未消化分を表現する (Layer 3 廃止)
+// — 「全部が赤いバー」は仕様に反するため、bg-red-700 一律塗りつぶしは廃止。
+//   status が warning ならアンバーのハッチ、delayed なら赤のハッチで残部を描画。
 // ---------------------------------------------------------------------------
-describe('GanttBar today prop + overdue 赤塗り', () => {
-  it('today > rowEnd && actualPct=60 && status=delayed: bg-red-700 ありで斜線・灰なし、aria-label に (期日超過)', () => {
+describe('GanttBar overdue 描画 (status 色ハッチ)', () => {
+  it('today > rowEnd && actualPct=60 && status=delayed: 赤ハッチ (#ef4444) がバー残部を埋める', () => {
     const html = renderToStaticMarkup(
       makeBar({
         actualPct: 60,
@@ -297,13 +299,14 @@ describe('GanttBar today prop + overdue 赤塗り', () => {
         today: new Date('2024-04-15'), // rowEnd より後
       }),
     )
-    expect(html).toContain('bg-red-700')
-    expect(html).not.toMatch(/url\(#hatch[^)]*\)/)
+    expect(html).not.toContain('bg-red-700')
+    expect(html).toMatch(/url\(#hatch[^)]*\)/)
+    expect(html).toContain('#ef4444') // delayed の hatch stroke
     expect(html).not.toContain('bg-gray-100')
     expect(html).toContain('(期日超過)')
   })
 
-  it('today > rowEnd && actualPct=60 && status=warning: status 不問で overdue 描画される', () => {
+  it('today > rowEnd && actualPct=60 && status=warning: アンバーハッチ (#f59e0b) で残部を埋める (全赤化しない)', () => {
     const html = renderToStaticMarkup(
       makeBar({
         actualPct: 60,
@@ -314,13 +317,14 @@ describe('GanttBar today prop + overdue 赤塗り', () => {
         today: new Date('2024-04-15'),
       }),
     )
-    expect(html).toContain('bg-red-700')
-    expect(html).not.toMatch(/url\(#hatch[^)]*\)/)
+    expect(html).not.toContain('bg-red-700')
+    expect(html).toMatch(/url\(#hatch[^)]*\)/)
+    expect(html).toContain('#f59e0b') // warning の hatch stroke (赤ではなくアンバー)
     expect(html).not.toContain('bg-gray-100')
     expect(html).toContain('(期日超過)')
   })
 
-  it('today > rowEnd && actualPct=100: cActual=100 で overdue 不成立、bg-red-700 なし', () => {
+  it('today > rowEnd && actualPct=100: cActual=100 で overdue 不成立、ハッチも未来灰もなし', () => {
     const html = renderToStaticMarkup(
       makeBar({
         actualPct: 100,
@@ -335,7 +339,7 @@ describe('GanttBar today prop + overdue 赤塗り', () => {
     expect(html).not.toContain('(期日超過)')
   })
 
-  it('today > rowEnd && status=completed: bg-red-700 なし、bg-green-500 が全幅', () => {
+  it('today > rowEnd && status=completed: bg-green-500 が全幅 (overdue 評価なし)', () => {
     const html = renderToStaticMarkup(
       makeBar({
         actualPct: 60,

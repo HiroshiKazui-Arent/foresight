@@ -89,6 +89,8 @@ export function GanttBar({
   }
 
   // isOverdue: 期日超過 (today > rowEnd 厳格大なり、未完、completed 以外)
+  // — aria-label の補足にのみ使用。バー描画は status 色 + ハッチングで表現し、
+  //   一律 bg-red-700 で塗りつぶす特殊レイヤーは仕様に反するため設けない。
   const isOverdue =
     today !== undefined &&
     rowEnd !== undefined &&
@@ -140,8 +142,10 @@ export function GanttBar({
       />
 
       {/* 層2: 遅延ギャップ (actualPct〜min(scheduledPct, todayInBar))
-          — SVG pattern で斜線ハッチング。overdue 時は描画しない */}
-      {!isOverdue && gapWidth > 0 && (
+          — SVG pattern で斜線ハッチング。
+          overdue 時は todayInBar が 100 にクランプされ、ハッチが
+          バー全幅まで延びる (status 色のハッチで未消化分を表現)。 */}
+      {gapWidth > 0 && (
         <svg
           style={{
             position: 'absolute',
@@ -167,22 +171,9 @@ export function GanttBar({
         </svg>
       )}
 
-      {/* 層3: overdue 赤塗り (actualPct〜100) — 期日超過時のみ */}
-      {isOverdue && (
-        <div
-          className="bg-red-700"
-          style={{
-            position: 'absolute',
-            left: `${cActual}%`,
-            width: `${100 - cActual}%`,
-            height: '100%',
-          }}
-        />
-      )}
-
-      {/* 層4: 未来予定エリア (max(scheduledPct, todayInBar)〜100)
-          — overdue 時は描画しない */}
-      {!isOverdue && futureWidth > 0 && (
+      {/* 層3: 未来予定エリア (max(scheduledPct, todayInBar)〜100)
+          — overdue 時は futureWidth=0 で自動的に描画されない */}
+      {futureWidth > 0 && (
         <div
           className="bg-gray-100"
           style={{

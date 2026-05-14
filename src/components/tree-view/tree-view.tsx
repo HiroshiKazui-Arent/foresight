@@ -158,8 +158,12 @@ export function TreeView({ project, today, mode = 'view' }: TreeViewProps) {
 
   return (
     <div className="relative flex flex-col gap-2">
-      {/* タイムラインヘッダー: 右カラムに月ラベルと今日バッジ */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, auto) 1fr' }}>
+      {/* タイムラインヘッダー: 5カラム grid (name / progress / status / days / bar)。
+          ヘッダーに表示するのは 5 番目のバー領域 (月ラベル + 今日バッジ) のみ。 */}
+      <div style={{ display: 'grid', gridTemplateColumns: '240px 88px 60px 56px 1fr' }}>
+        <div />
+        <div />
+        <div />
         <div />
         <div className="relative overflow-hidden">
           <TimelineHeader projectStart={projectStart} projectEnd={projectEnd} today={today} />
@@ -195,12 +199,16 @@ export function TreeView({ project, today, mode = 'view' }: TreeViewProps) {
         <AddRowButton label="マイルストーンを追加" onAdd={handleAddMilestone} />
       </div>
 
-      {/* 今日線オーバーレイ: position:absolute でコンテナ全体を貫き、右カラムに縦線を描く */}
+      {/* 今日線オーバーレイ: position:absolute でコンテナ全体を貫き、
+          5 番目のバー領域 (1fr) に縦線を描く。他カラムは空セルで占有のみ。 */}
       <div
         className="pointer-events-none absolute inset-0"
-        style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, auto) 1fr' }}
+        style={{ display: 'grid', gridTemplateColumns: '240px 88px 60px 56px 1fr' }}
         aria-hidden="true"
       >
+        <div />
+        <div />
+        <div />
         <div />
         <div className="relative">
           <TodayLine todayX={todayX} />
