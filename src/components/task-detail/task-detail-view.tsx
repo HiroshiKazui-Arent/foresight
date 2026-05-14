@@ -160,7 +160,7 @@ export function TaskDetailView({ task, todos, projectId, today }: Props) {
             today={today}
             actualPct={task.actualPct}
             scheduledPct={task.scheduledPct}
-            status={task.status}
+            renderStatus={task.renderStatus}
           />
           {showTodayLine && (
             <div
@@ -397,7 +397,7 @@ export function TaskDetailView({ task, todos, projectId, today }: Props) {
                     today={today}
                     actualPct={todo.progressData.actualPct}
                     scheduledPct={todo.progressData.scheduledPct}
-                    status={todo.progressData.status}
+                    renderStatus={todo.progressData.renderStatus}
                   />
                 </div>
               </div>

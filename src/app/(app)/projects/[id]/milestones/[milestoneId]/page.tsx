@@ -4,8 +4,8 @@ import { getProject } from '@/server/actions/project'
 import {
   buildTaskProgressData,
   buildMilestoneProgressData,
+  buildTodoProgressData,
 } from '@/components/tree-view/progress-utils'
-import { calcScheduledPct, calcTodoStatus, calcDaysDeviation } from '@/lib/progress'
 import { TimelineView } from '@/components/timeline-view/timeline-view'
 import type { TimelineTask, TimelineTodo, TimelineMilestone } from '@/types/timeline'
 
@@ -38,24 +38,14 @@ export default async function MilestonePage({
     const taskProgressData = buildTaskProgressData(task, today)
 
     const todos: TimelineTodo[] = task.todos.map((todo) => {
-      const todoActualPct = todo.completed ? 100 : 0
-      const scheduledPct = calcScheduledPct(todo.startDate, todo.endDate, today)
-      const status = calcTodoStatus(todo.completed, todo.startDate, todo.endDate, today)
-      const todoDurationDays =
-        (todo.endDate.getTime() - todo.startDate.getTime()) / (1000 * 60 * 60 * 24)
-      const daysDeviation = calcDaysDeviation(todoActualPct, scheduledPct, todoDurationDays)
+      const todoProgress = buildTodoProgressData(todo, today)
       return {
         id: todo.id,
         name: todo.name,
         startDate: todo.startDate,
         endDate: todo.endDate,
         completed: todo.completed,
-        progressData: {
-          actualPct: todoActualPct,
-          scheduledPct,
-          status,
-          daysDeviation,
-        },
+        progressData: todoProgress,
       }
     })
 

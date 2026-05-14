@@ -145,7 +145,7 @@ export function MilestoneRow({
             today={today}
             actualPct={progress.actualPct}
             scheduledPct={progress.scheduledPct}
-            status={progress.status}
+            renderStatus={progress.renderStatus}
           />
         </div>
       </div>

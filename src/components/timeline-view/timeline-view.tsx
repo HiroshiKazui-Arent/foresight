@@ -46,7 +46,7 @@ export function TimelineView({ milestone, tasks, projectId, today }: Props) {
             today={today}
             actualPct={milestone.progressData.actualPct}
             scheduledPct={milestone.progressData.scheduledPct}
-            status={milestone.progressData.status}
+            renderStatus={milestone.progressData.renderStatus}
           />
         </div>
       </div>
@@ -143,7 +143,7 @@ function TaskRow({ task, milestoneScope, projectId, today }: TaskRowProps) {
               today={today}
               actualPct={task.actualPct}
               scheduledPct={task.scheduledPct}
-              status={task.status}
+              renderStatus={task.renderStatus}
             />
           </div>
         </div>
@@ -206,7 +206,7 @@ function TodoList({ todos, taskScope, today }: TodoListProps) {
                     today={today}
                     actualPct={todo.progressData.actualPct}
                     scheduledPct={todo.progressData.scheduledPct}
-                    status={todo.progressData.status}
+                    renderStatus={todo.progressData.renderStatus}
                   />
                 </div>
               </div>
