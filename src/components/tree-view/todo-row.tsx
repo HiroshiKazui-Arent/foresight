@@ -45,12 +45,18 @@ export function TodoRow({ todo, today, projectStart, projectEnd }: TodoRowProps)
 
         {/* 3. ステータス */}
         <div className="flex items-center justify-start px-1">
-          <StatusPill status={progress.status} />
+          <StatusPill renderStatus={progress.renderStatus} />
         </div>
 
         {/* 4. 遅延日数 */}
         <div className="flex items-center justify-start px-1">
-          <DaysPill days={progress.daysDeviation} />
+          <DaysPill
+            today={today}
+            rowEnd={progress.endDate}
+            actualPct={progress.actualPct}
+            scheduledPct={progress.scheduledPct}
+            durationDays={progress.durationDays}
+          />
         </div>
 
         {/* 5. ガントバー (共有タイムライン) */}
