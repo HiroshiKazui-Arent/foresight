@@ -269,7 +269,7 @@ describe('TC-I1-006: submitDailyReport 後の actualPct 変化', () => {
     const todosBefore = await prisma.todo.findMany({ where: { taskId: task.id } })
     expect(calcTaskActualPct(todosBefore)).toBe(0)
 
-    await submitDailyReport(todo.id, project.id, true)
+    await submitDailyReport(todo.id, project.id, { started: true, completed: true })
 
     const todosAfter = await prisma.todo.findMany({ where: { taskId: task.id } })
     expect(calcTaskActualPct(todosAfter)).toBe(100)
