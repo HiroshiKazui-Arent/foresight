@@ -1,17 +1,33 @@
 import { useId } from 'react'
 import { ProgressStatus } from '@/types/progress'
-import { barOffsetWidth } from '@/components/gantt/timeline-utils'
+import { barOffsetWidth, xForDate } from '@/components/gantt/timeline-utils'
 
-// 日付プロパティは全4つ揃えて渡すか、全て省略するかのどちらか。
-// 1〜3 個だけ渡すと TypeScript エラーになる (discriminated union)。
-type GanttBarProps = {
+// 日付プロパティは全 5 つ (projectStart/projectEnd/rowStart/rowEnd/today) 揃えて
+// 渡すか、全て省略するかのどちらか (discriminated union)。
+// プレビュー用途のみ Legacy variant (全省略) を使う。
+type GanttBarPropsWithDates = {
   actualPct: number
   scheduledPct: number
   status: ProgressStatus
-} & (
-  | { projectStart: Date; projectEnd: Date; rowStart: Date; rowEnd: Date }
-  | { projectStart?: never; projectEnd?: never; rowStart?: never; rowEnd?: never }
-)
+  projectStart: Date
+  projectEnd: Date
+  rowStart: Date
+  rowEnd: Date
+  today: Date
+}
+
+type GanttBarPropsLegacy = {
+  actualPct: number
+  scheduledPct: number
+  status: ProgressStatus
+  projectStart?: never
+  projectEnd?: never
+  rowStart?: never
+  rowEnd?: never
+  today?: never
+}
+
+type GanttBarProps = GanttBarPropsWithDates | GanttBarPropsLegacy
 
 export const STATUS_COLORS: Record<ProgressStatus, string> = {
   completed: 'bg-green-500',
@@ -45,6 +61,7 @@ export function GanttBar({
   projectEnd,
   rowStart,
   rowEnd,
+  today,
   actualPct,
   scheduledPct,
   status,
@@ -57,8 +74,31 @@ export function GanttBar({
 
   const colorClass = STATUS_COLORS[status]
   const cActual = clampPct(actualPct)
-  const cScheduled = clampPct(scheduledPct)
-  const ariaLabel = `進捗バー: ${STATUS_LABELS[status]} 実績${cActual}%`
+  let cScheduled = clampPct(scheduledPct)
+
+  // todayInBar: バー内の今日線位置 (0〜100%)。日付あり variant のみ計算。
+  const todayInBar =
+    today !== undefined && rowStart !== undefined && rowEnd !== undefined
+      ? xForDate(today, rowStart, rowEnd)
+      : null
+
+  // ドリフト対策: cScheduled と todayInBar が 0.5% 未満の差なら todayInBar に揃える
+  // (描画スリバー回避)
+  if (todayInBar !== null && Math.abs(cScheduled - todayInBar) < 0.5) {
+    cScheduled = todayInBar
+  }
+
+  // isOverdue: 期日超過 (today > rowEnd 厳格大なり、未完、completed 以外)
+  const isOverdue =
+    today !== undefined &&
+    rowEnd !== undefined &&
+    status !== 'completed' &&
+    today.getTime() > rowEnd.getTime() &&
+    cActual < 100
+
+  const ariaLabel = `進捗バー: ${STATUS_LABELS[status]} 実績${cActual}%${
+    isOverdue ? ' (期日超過)' : ''
+  }`
 
   if (status === 'completed') {
     return (
@@ -75,9 +115,14 @@ export function GanttBar({
     )
   }
 
-  const gapWidth = Math.max(0, cScheduled - cActual)
-  const futureLeft = cScheduled
-  const futureWidth = 100 - cScheduled
+  // Layer 2 (斜線) の右端: today クランプ
+  const hatchEnd = todayInBar !== null ? Math.min(cScheduled, todayInBar) : cScheduled
+  const gapWidth = Math.max(0, hatchEnd - cActual)
+
+  // Layer 4 (未来予定灰) の左端: today クランプ
+  const futureLeft = todayInBar !== null ? Math.max(cScheduled, todayInBar) : cScheduled
+  const futureWidth = Math.max(0, 100 - futureLeft)
+
   const hatchStroke = HATCH_STROKE_COLORS[status]
   // useId() でインスタンス固有の ID を生成し、同一ページ内での SVG pattern ID 重複を防ぐ
   const hatchPatternId = `hatch-${uid}-${status}`
@@ -94,8 +139,9 @@ export function GanttBar({
         style={{ position: 'absolute', left: '0%', width: `${cActual}%`, height: '100%' }}
       />
 
-      {/* 層2: 遅延ギャップ (actualPct〜scheduledPct) — SVG pattern で斜線ハッチング */}
-      {gapWidth > 0 && (
+      {/* 層2: 遅延ギャップ (actualPct〜min(scheduledPct, todayInBar))
+          — SVG pattern で斜線ハッチング。overdue 時は描画しない */}
+      {!isOverdue && gapWidth > 0 && (
         <svg
           style={{
             position: 'absolute',
@@ -121,8 +167,22 @@ export function GanttBar({
         </svg>
       )}
 
-      {/* 層3: 未来予定エリア (scheduledPct〜100) */}
-      {futureWidth > 0 && (
+      {/* 層3: overdue 赤塗り (actualPct〜100) — 期日超過時のみ */}
+      {isOverdue && (
+        <div
+          className="bg-red-700"
+          style={{
+            position: 'absolute',
+            left: `${cActual}%`,
+            width: `${100 - cActual}%`,
+            height: '100%',
+          }}
+        />
+      )}
+
+      {/* 層4: 未来予定エリア (max(scheduledPct, todayInBar)〜100)
+          — overdue 時は描画しない */}
+      {!isOverdue && futureWidth > 0 && (
         <div
           className="bg-gray-100"
           style={{

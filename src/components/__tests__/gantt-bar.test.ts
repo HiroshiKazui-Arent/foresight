@@ -120,6 +120,16 @@ function makeBar(overrides: Partial<ComponentProps<typeof GanttBar>> = {}) {
     projectEnd,
     rowStart,
     rowEnd,
+    today: new Date('2024-04-01'),
+    actualPct: 50,
+    scheduledPct: 70,
+    status: 'on-track' as ProgressStatus,
+    ...overrides,
+  } as ComponentProps<typeof GanttBar>)
+}
+
+function makeBarLegacy(overrides: Partial<ComponentProps<typeof GanttBar>> = {}) {
+  return createElement(GanttBar, {
     actualPct: 50,
     scheduledPct: 70,
     status: 'on-track' as ProgressStatus,
@@ -181,10 +191,12 @@ describe('GanttBar コンポーネント (新シグネチャ)', () => {
   })
 
   it('遅延ギャップ幅は scheduledPct - actualPct に等しい', () => {
+    // scheduledPct=40 で todayInBar (≈50.27%) と十分離れドリフト調整を回避する。
+    // hatchEnd = min(40, 50.27) = 40、gap = 40 - 10 = 30。
     const html = renderToStaticMarkup(
-      makeBar({ actualPct: 20, scheduledPct: 50, status: 'warning' }),
+      makeBar({ actualPct: 10, scheduledPct: 40, status: 'warning' }),
     )
-    // width: 30% (= 50 - 20)
+    // width: 30% (= 40 - 10)
     expect(html).toContain('width:30%')
   })
 
@@ -267,5 +279,134 @@ describe('GanttBar コンポーネント (新シグネチャ)', () => {
     // left=0%, right=100%, width=100%
     // 外側 wrapper の width が 100% になる
     expect(html).toMatch(/width:100%/)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 新セマンティクス: today prop + overdue 赤塗り (Layer 3)
+// ---------------------------------------------------------------------------
+describe('GanttBar today prop + overdue 赤塗り', () => {
+  it('today > rowEnd && actualPct=60 && status=delayed: bg-red-700 ありで斜線・灰なし、aria-label に (期日超過)', () => {
+    const html = renderToStaticMarkup(
+      makeBar({
+        actualPct: 60,
+        scheduledPct: 100,
+        status: 'delayed',
+        rowStart: new Date('2024-01-01'),
+        rowEnd: new Date('2024-03-31'),
+        today: new Date('2024-04-15'), // rowEnd より後
+      }),
+    )
+    expect(html).toContain('bg-red-700')
+    expect(html).not.toMatch(/url\(#hatch[^)]*\)/)
+    expect(html).not.toContain('bg-gray-100')
+    expect(html).toContain('(期日超過)')
+  })
+
+  it('today > rowEnd && actualPct=60 && status=warning: status 不問で overdue 描画される', () => {
+    const html = renderToStaticMarkup(
+      makeBar({
+        actualPct: 60,
+        scheduledPct: 100,
+        status: 'warning',
+        rowStart: new Date('2024-01-01'),
+        rowEnd: new Date('2024-03-31'),
+        today: new Date('2024-04-15'),
+      }),
+    )
+    expect(html).toContain('bg-red-700')
+    expect(html).not.toMatch(/url\(#hatch[^)]*\)/)
+    expect(html).not.toContain('bg-gray-100')
+    expect(html).toContain('(期日超過)')
+  })
+
+  it('today > rowEnd && actualPct=100: cActual=100 で overdue 不成立、bg-red-700 なし', () => {
+    const html = renderToStaticMarkup(
+      makeBar({
+        actualPct: 100,
+        scheduledPct: 100,
+        status: 'on-track',
+        rowStart: new Date('2024-01-01'),
+        rowEnd: new Date('2024-03-31'),
+        today: new Date('2024-04-15'),
+      }),
+    )
+    expect(html).not.toContain('bg-red-700')
+    expect(html).not.toContain('(期日超過)')
+  })
+
+  it('today > rowEnd && status=completed: bg-red-700 なし、bg-green-500 が全幅', () => {
+    const html = renderToStaticMarkup(
+      makeBar({
+        actualPct: 60,
+        scheduledPct: 100,
+        status: 'completed',
+        rowStart: new Date('2024-01-01'),
+        rowEnd: new Date('2024-03-31'),
+        today: new Date('2024-04-15'),
+      }),
+    )
+    expect(html).not.toContain('bg-red-700')
+    expect(html).toContain('bg-green-500')
+    expect(html).toContain('width:100%')
+    expect(html).not.toContain('(期日超過)')
+  })
+
+  it('today === rowEnd && actualPct=80 && status=delayed: 境界値、overdue 不成立で斜線残る', () => {
+    const html = renderToStaticMarkup(
+      makeBar({
+        actualPct: 80,
+        scheduledPct: 100,
+        status: 'delayed',
+        rowStart: new Date('2024-01-01'),
+        rowEnd: new Date('2024-03-31'),
+        today: new Date('2024-03-31'), // rowEnd と同一
+      }),
+    )
+    expect(html).not.toContain('bg-red-700')
+    expect(html).toMatch(/url\(#hatch[^)]*\)/)
+    expect(html).not.toContain('(期日超過)')
+  })
+
+  it('today === rowStart && actualPct=0: 斜線なし、bg-gray-100 が全幅', () => {
+    const html = renderToStaticMarkup(
+      makeBar({
+        actualPct: 0,
+        scheduledPct: 0,
+        status: 'scheduled',
+        rowStart: new Date('2024-04-01'),
+        rowEnd: new Date('2024-06-30'),
+        today: new Date('2024-04-01'), // rowStart と同一
+      }),
+    )
+    expect(html).not.toMatch(/url\(#hatch[^)]*\)/)
+    expect(html).toContain('bg-gray-100')
+    expect(html).not.toContain('bg-red-700')
+  })
+
+  it('ドリフトケース: scheduledPct=80, todayInBar≈49%、overdue 不成立 → 斜線存在、Layer 3 なし', () => {
+    const html = renderToStaticMarkup(
+      makeBar({
+        actualPct: 30,
+        scheduledPct: 80,
+        status: 'delayed',
+        rowStart: new Date('2024-01-01'),
+        rowEnd: new Date('2024-06-30'),
+        today: new Date('2024-04-01'), // 中央付近 (≈49%)
+      }),
+    )
+    expect(html).toMatch(/url\(#hatch[^)]*\)/)
+    expect(html).not.toContain('bg-red-700')
+  })
+
+  it('Legacy variant (today なし): 既存挙動を維持、bg-red-700 含まない', () => {
+    const html = renderToStaticMarkup(
+      makeBarLegacy({ actualPct: 30, scheduledPct: 60, status: 'delayed' }),
+    )
+    expect(html).not.toContain('bg-red-700')
+    expect(html).not.toContain('(期日超過)')
+    // 既存挙動: 斜線と灰がある
+    expect(html).toMatch(/url\(#hatch[^)]*\)/)
+    expect(html).toContain('bg-gray-100')
   })
 })
