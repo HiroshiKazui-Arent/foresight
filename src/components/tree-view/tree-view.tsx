@@ -14,6 +14,10 @@ import type { Milestone, Project, Task, Todo } from '@prisma/client'
 import { reorderMilestones, updateMilestone, createMilestone } from '@/server/actions/milestone'
 import { reorderTasks, updateTask, createTask } from '@/server/actions/task'
 import { createTodo } from '@/server/actions/todo'
+import { TodayLine } from '@/components/gantt/today-line'
+import { TimelineHeader } from '@/components/gantt/timeline-header'
+import { xForDate } from '@/components/gantt/timeline-utils'
+import { calcProjectDateRange } from './project-date-range'
 import { MilestoneRow } from './milestone-row'
 import { AddRowButton } from './add-row-button'
 
@@ -36,16 +40,22 @@ export function TreeView({ project, today, mode = 'view' }: TreeViewProps) {
     }),
   )
 
+  const { start: projectStart, end: projectEnd } = calcProjectDateRange(
+    milestones,
+    project.startDate,
+    project.endDate,
+  )
+  const todayX = xForDate(today, projectStart, projectEnd)
+
   const handleDragEnd = useCallback(
     async (event: DragEndEvent) => {
-      if (mode === 'input') return
+      if (mode !== 'view') return
       const { active, over } = event
       if (!over || active.id === over.id) return
 
       const activeId = String(active.id)
       const overId = String(over.id)
 
-      // マイルストーンの並び替え
       const milestoneIds = milestones.map((m) => m.id)
       if (milestoneIds.includes(activeId) && milestoneIds.includes(overId)) {
         const oldIndex = milestoneIds.indexOf(activeId)
@@ -64,7 +74,6 @@ export function TreeView({ project, today, mode = 'view' }: TreeViewProps) {
         return
       }
 
-      // タスクの並び替え — どのマイルストーン配下か探す
       for (const milestone of milestones) {
         const taskIds = milestone.tasks.map((t) => t.id)
         if (taskIds.includes(activeId) && taskIds.includes(overId)) {
@@ -148,7 +157,15 @@ export function TreeView({ project, today, mode = 'view' }: TreeViewProps) {
   const milestoneIds = milestones.map((m) => m.id)
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="relative flex flex-col gap-2">
+      {/* タイムラインヘッダー: 右カラムに月ラベルと今日バッジ */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, auto) 1fr' }}>
+        <div />
+        <div className="relative overflow-hidden">
+          <TimelineHeader projectStart={projectStart} projectEnd={projectEnd} today={today} />
+        </div>
+      </div>
+
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={milestoneIds} strategy={verticalListSortingStrategy}>
           {milestones.map((milestone) => (
@@ -157,6 +174,8 @@ export function TreeView({ project, today, mode = 'view' }: TreeViewProps) {
               milestone={milestone}
               projectId={project.id}
               today={today}
+              projectStart={projectStart}
+              projectEnd={projectEnd}
               mode={mode}
               onUpdateMilestone={handleUpdateMilestone}
               onAddTask={handleAddTask}
@@ -167,8 +186,19 @@ export function TreeView({ project, today, mode = 'view' }: TreeViewProps) {
         </SortableContext>
       </DndContext>
 
-      {/* マイルストーン追加ボタン */}
       <AddRowButton label="マイルストーンを追加" onAdd={handleAddMilestone} />
+
+      {/* 今日線オーバーレイ: position:absolute でコンテナ全体を貫き、右カラムに縦線を描く */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, auto) 1fr' }}
+        aria-hidden="true"
+      >
+        <div />
+        <div className="relative">
+          <TodayLine todayX={todayX} />
+        </div>
+      </div>
     </div>
   )
 }

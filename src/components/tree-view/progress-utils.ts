@@ -2,11 +2,48 @@ import {
   calcScheduledPct,
   calcDaysDeviation,
   calcStatus,
+  calcTodoStatus,
   calcTaskActualPct,
   calcMilestoneActualPct,
   calcProjectActualPct,
 } from '@/lib/progress'
 import type { ProgressBarData } from '@/types/progress'
+import { calcProjectDateRange } from './project-date-range'
+
+type TodoForProgressData = {
+  completed: boolean
+  startDate: Date
+  endDate: Date
+}
+
+export type TodoProgressData = ProgressBarData & {
+  startDate: Date
+  endDate: Date
+  actualPct: number
+}
+
+/**
+ * ToDo 1件の進捗データを算出する。
+ * - actualPct: completed ? 100 : 0
+ * - scheduledPct: calcScheduledPct(startDate, endDate, today)
+ * - status: calcTodoStatus (M-01: ToDo レベルでは warning を持たない)
+ * - daysDeviation: calcDaysDeviation(actualPct, scheduledPct, durationDays)
+ */
+export function buildTodoProgressData(todo: TodoForProgressData, today: Date): TodoProgressData {
+  const actualPct = todo.completed ? 100 : 0
+  const scheduledPct = calcScheduledPct(todo.startDate, todo.endDate, today)
+  const status = calcTodoStatus(todo.completed, todo.startDate, todo.endDate, today)
+  const durationDays = (todo.endDate.getTime() - todo.startDate.getTime()) / (1000 * 60 * 60 * 24)
+  const daysDeviation = calcDaysDeviation(actualPct, scheduledPct, durationDays)
+  return {
+    actualPct,
+    scheduledPct,
+    status,
+    daysDeviation,
+    startDate: todo.startDate,
+    endDate: todo.endDate,
+  }
+}
 
 type TodoForCalc = {
   completed: boolean
@@ -100,12 +137,10 @@ export function buildProjectProgressData(
 
   const actualPct = calcProjectActualPct(milestoneData)
 
-  const startDate = milestones.reduce(
-    (min, ms) => (ms.startDate < min ? ms.startDate : min),
+  // calcProjectDateRange が単一の情報源: project-date-range.ts と同じロジックを持たない
+  const { start: startDate, end: endDate } = calcProjectDateRange(
+    milestones,
     milestones[0].startDate,
-  )
-  const endDate = milestones.reduce(
-    (max, ms) => (ms.endDate > max ? ms.endDate : max),
     milestones[0].endDate,
   )
 
