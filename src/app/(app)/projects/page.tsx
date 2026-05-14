@@ -44,5 +44,5 @@ export default async function ProjectsPage() {
     }
   })
 
-  return <ProjectList projects={projectItems} />
+  return <ProjectList projects={projectItems} today={today} />
 }

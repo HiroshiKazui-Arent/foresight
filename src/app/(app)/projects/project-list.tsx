@@ -6,6 +6,8 @@ import { ProgressPill } from '@/components/progress-pill'
 import { StatusPill } from '@/components/status-pill'
 import { DaysPill } from '@/components/days-pill'
 import { GanttBar } from '@/components/gantt/gantt-bar'
+import { TodayLine } from '@/components/gantt/today-line'
+import { xForDate } from '@/components/gantt/timeline-utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -29,6 +31,7 @@ interface ProjectListItem {
 
 interface ProjectListProps {
   projects: ProjectListItem[]
+  today: Date
 }
 
 // UTC 年月日を ja-JP ロケール相当 (YYYY/M/D) に変換。
@@ -38,7 +41,7 @@ function fmtDate(d: Date): string {
   return `${d.getUTCFullYear()}/${d.getUTCMonth() + 1}/${d.getUTCDate()}`
 }
 
-export function ProjectList({ projects }: ProjectListProps) {
+export function ProjectList({ projects, today }: ProjectListProps) {
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
   const [open, setOpen] = useState(false)
@@ -162,6 +165,7 @@ export function ProjectList({ projects }: ProjectListProps) {
                   scheduledPct={project.progressBar.scheduledPct}
                   status={project.progressBar.status}
                 />
+                <TodayLine todayX={xForDate(today, project.startDate, project.endDate)} />
               </div>
               <div className="flex items-center justify-between">
                 <ProgressPill
