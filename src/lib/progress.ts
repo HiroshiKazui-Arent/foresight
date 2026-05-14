@@ -147,5 +147,6 @@ export function calcRealDaysDeviation(
   if (today > rowEnd) {
     return (rowEnd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
   }
-  return calcDaysDeviation(actualPct, scheduledPct, durationDays)
+  if (durationDays === 0) return 0
+  return ((actualPct - scheduledPct) / 100) * durationDays
 }

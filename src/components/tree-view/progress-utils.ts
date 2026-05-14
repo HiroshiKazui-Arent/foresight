@@ -24,6 +24,7 @@ export type TodoProgressData = ProgressBarData & {
   endDate: Date
   actualPct: number
   renderStatus: RenderStatus
+  durationDays: number
 }
 
 /**
@@ -52,6 +53,7 @@ export function buildTodoProgressData(todo: TodoForProgressData, today: Date): T
     startDate: todo.startDate,
     endDate: todo.endDate,
     renderStatus,
+    durationDays,
   }
 }
 
@@ -78,6 +80,7 @@ export type TaskProgressData = ProgressBarData & {
   endDate: Date
   actualPct: number
   renderStatus: RenderStatus
+  durationDays: number
 }
 
 export type MilestoneProgressData = ProgressBarData & {
@@ -85,6 +88,7 @@ export type MilestoneProgressData = ProgressBarData & {
   endDate: Date
   actualPct: number
   renderStatus: RenderStatus
+  durationDays: number
 }
 
 export function buildTaskProgressData(task: TaskForCalc, today: Date): TaskProgressData {
@@ -107,6 +111,7 @@ export function buildTaskProgressData(task: TaskForCalc, today: Date): TaskProgr
     startDate: task.startDate,
     endDate: task.endDate,
     renderStatus,
+    durationDays,
   }
 }
 
@@ -138,6 +143,7 @@ export function buildMilestoneProgressData(
     startDate: milestone.startDate,
     endDate: milestone.endDate,
     renderStatus,
+    durationDays,
   }
 }
 
