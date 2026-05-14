@@ -1,4 +1,15 @@
 import { defineConfig, devices } from '@playwright/test'
+import { existsSync, readFileSync } from 'fs'
+import { resolve } from 'path'
+
+// Load .env.local so DATABASE_URL is available in test fixtures (e.g. prisma-fixture.ts)
+const envLocalPath = resolve(__dirname, '.env.local')
+if (existsSync(envLocalPath)) {
+  for (const line of readFileSync(envLocalPath, 'utf-8').split('\n')) {
+    const m = line.match(/^([^#=][^=]*)=["']?(.+?)["']?\s*$/)
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2]
+  }
+}
 
 export default defineConfig({
   testDir: './e2e',

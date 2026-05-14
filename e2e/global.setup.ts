@@ -15,7 +15,7 @@ setup('ログイン済み状態を保存する', async ({ page }) => {
   await page.getByLabel('パスワード').fill('password123')
   await page.getByRole('button', { name: 'サインイン' }).click()
 
-  await expect(page).toHaveURL('/projects')
+  await expect(page).toHaveURL('/projects', { timeout: 15000 })
 
   await page.context().storageState({ path: authFile })
 })
