@@ -22,6 +22,8 @@ interface MilestoneRowProps {
   milestone: MilestoneWithTasks
   projectId: string
   today: Date
+  projectStart: Date
+  projectEnd: Date
   mode?: 'view' | 'input'
   onUpdateMilestone: (id: string, name: string) => Promise<void>
   onAddTask: (milestoneId: string, name: string, startDate: Date, endDate: Date) => Promise<void>
@@ -33,6 +35,8 @@ export function MilestoneRow({
   milestone,
   projectId,
   today,
+  projectStart,
+  projectEnd,
   mode = 'view',
   onUpdateMilestone,
   onAddTask,
@@ -60,66 +64,79 @@ export function MilestoneRow({
       style={style}
       className="group mb-2 rounded-md border border-gray-200 bg-white shadow-sm"
     >
-      {/* マイルストーンヘッダー */}
-      <div className="flex items-center gap-2 px-3 py-2">
-        {/* ドラッグハンドル (view モードのみ) */}
-        {mode !== 'input' && (
+      {/* 2カラムGrid: 左=ラベル+ピル、右=ガントバー */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(280px, auto) 1fr',
+          alignItems: 'center',
+        }}
+      >
+        {/* 左カラム: ヘッダー */}
+        <div className="flex items-center gap-2 px-3 py-2">
+          {/* ドラッグハンドル (view モードのみ) */}
+          {mode !== 'input' && (
+            <button
+              type="button"
+              {...attributes}
+              {...listeners}
+              className="cursor-grab p-1 text-gray-300 opacity-0 transition-opacity group-hover:opacity-100 hover:text-gray-500 active:cursor-grabbing"
+              aria-label="ドラッグして並び替え"
+            >
+              ⠿
+            </button>
+          )}
+
+          {/* 折りたたみボタン */}
           <button
             type="button"
-            {...attributes}
-            {...listeners}
-            className="cursor-grab p-1 text-gray-300 opacity-0 transition-opacity group-hover:opacity-100 hover:text-gray-500 active:cursor-grabbing"
-            aria-label="ドラッグして並び替え"
+            onClick={() => setExpanded((v) => !v)}
+            className="text-gray-500 transition-transform hover:text-gray-700"
+            aria-label={expanded ? '折りたたむ' : '展開する'}
+            aria-expanded={expanded}
           >
-            ⠿
+            {expanded ? '▼' : '▶'}
           </button>
-        )}
 
-        {/* 折りたたみボタン */}
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="text-gray-500 transition-transform hover:text-gray-700"
-          aria-label={expanded ? '折りたたむ' : '展開する'}
-          aria-expanded={expanded}
-        >
-          {expanded ? '▼' : '▶'}
-        </button>
+          {/* マイルストーン名（インライン編集）+ V2 リンク */}
+          <div className="flex min-w-0 flex-1 items-center gap-1">
+            <InlineEdit
+              value={milestone.name}
+              onSave={(newName) => onUpdateMilestone(milestone.id, newName)}
+              className="font-semibold"
+            />
+            {mode !== 'input' && (
+              <Link
+                href={`/projects/${projectId}/milestones/${milestone.id}`}
+                className="shrink-0 rounded p-1 text-xs text-gray-400 hover:text-blue-500"
+                aria-label="タイムラインビューで開く"
+                title="タイムラインビュー"
+              >
+                →
+              </Link>
+            )}
+          </div>
 
-        {/* マイルストーン名（インライン編集）+ V2 リンク */}
-        <div className="flex min-w-0 flex-1 items-center gap-1">
-          <InlineEdit
-            value={milestone.name}
-            onSave={(newName) => onUpdateMilestone(milestone.id, newName)}
-            className="font-semibold"
+          {/* 進捗情報 */}
+          <div className="flex shrink-0 items-center gap-2">
+            <ProgressPill actualPct={progress.actualPct} scheduledPct={progress.scheduledPct} />
+            <StatusPill status={progress.status} />
+            <DaysPill days={progress.daysDeviation} />
+          </div>
+        </div>
+
+        {/* 右カラム: ガントバー */}
+        <div className="relative pr-4" style={{ height: '24px' }}>
+          <GanttBar
+            projectStart={projectStart}
+            projectEnd={projectEnd}
+            rowStart={milestone.startDate}
+            rowEnd={milestone.endDate}
+            actualPct={progress.actualPct}
+            scheduledPct={progress.scheduledPct}
+            status={progress.status}
           />
-          {mode !== 'input' && (
-            <Link
-              href={`/projects/${projectId}/milestones/${milestone.id}`}
-              className="shrink-0 rounded p-1 text-xs text-gray-400 hover:text-blue-500"
-              aria-label="タイムラインビューで開く"
-              title="タイムラインビュー"
-            >
-              →
-            </Link>
-          )}
         </div>
-
-        {/* 進捗情報 */}
-        <div className="flex shrink-0 items-center gap-2">
-          <ProgressPill actualPct={progress.actualPct} scheduledPct={progress.scheduledPct} />
-          <StatusPill status={progress.status} />
-          <DaysPill days={progress.daysDeviation} />
-        </div>
-      </div>
-
-      {/* ガントバー */}
-      <div className="px-4 pb-1">
-        <GanttBar
-          actualPct={progress.actualPct}
-          scheduledPct={progress.scheduledPct}
-          status={progress.status}
-        />
       </div>
 
       {/* タスク一覧（折りたたみ可能） */}
@@ -132,6 +149,8 @@ export function MilestoneRow({
                 task={task}
                 today={today}
                 projectId={projectId}
+                projectStart={projectStart}
+                projectEnd={projectEnd}
                 mode={mode}
                 onUpdateTask={onUpdateTask}
                 onAddTodo={onAddTodo}
@@ -139,14 +158,16 @@ export function MilestoneRow({
             ))}
           </SortableContext>
 
-          {/* タスク追加ボタン (view モードのみ) */}
+          {/* タスク追加ボタン (view モードのみ): タスク行 ml-6 より一段深い ml-10 */}
           {mode !== 'input' && (
-            <AddRowButton
-              label="タスクを追加"
-              onAdd={(name, startDate, endDate) =>
-                onAddTask(milestone.id, name, startDate, endDate)
-              }
-            />
+            <div className="ml-10">
+              <AddRowButton
+                label="タスクを追加"
+                onAdd={(name, startDate, endDate) =>
+                  onAddTask(milestone.id, name, startDate, endDate)
+                }
+              />
+            </div>
           )}
         </div>
       )}

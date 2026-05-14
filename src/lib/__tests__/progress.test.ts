@@ -41,6 +41,20 @@ describe('calcScheduledPct', () => {
     const today = new Date('2026-01-06')
     expect(calcScheduledPct(start, end, today)).toBe(50)
   })
+  // TC-PROG-001: 仕様書 4.1 の exact value 検証
+  it('TC-PROG-001: 2026-04-01〜2026-04-30 の 2026-04-15 時点は ~48.3%', () => {
+    const start = new Date('2026-04-01')
+    const end = new Date('2026-04-30')
+    const today = new Date('2026-04-15')
+    expect(calcScheduledPct(start, end, today)).toBeCloseTo(48.3, 0)
+  })
+  // TC-PROG-007: 年跨ぎシナリオ (M-1 確認済み: 正しい期待値は 50%)
+  it('TC-PROG-007: 年跨ぎ (start=12/31, end=01/02, today=01/01) → 50%', () => {
+    const start = new Date('2025-12-31')
+    const end = new Date('2026-01-02')
+    const today = new Date('2026-01-01')
+    expect(calcScheduledPct(start, end, today)).toBe(50)
+  })
   it('開始前は0%', () => {
     const start = new Date('2026-06-01')
     const end = new Date('2026-06-30')
@@ -79,6 +93,16 @@ describe('calcDaysDeviation', () => {
   })
   it('大きな乖離', () => {
     expect(calcDaysDeviation(0, 100, 100)).toBe(-100)
+  })
+  // TC-DIFF-001〜003: 仕様書 4.2 の exact value 検証
+  it('TC-DIFF-001: calcDaysDeviation(44, 83, 30) → -11.7', () => {
+    expect(calcDaysDeviation(44, 83, 30)).toBeCloseTo(-11.7, 1)
+  })
+  it('TC-DIFF-002: calcDaysDeviation(50, 50, 30) → 0', () => {
+    expect(calcDaysDeviation(50, 50, 30)).toBe(0)
+  })
+  it('TC-DIFF-003: calcDaysDeviation(50, 30, 30) → +6', () => {
+    expect(calcDaysDeviation(50, 30, 30)).toBe(6)
   })
 })
 
@@ -222,6 +246,11 @@ describe('calcMilestoneActualPct', () => {
     expect(calcMilestoneActualPct([{ actualPct: 80, startDate: same, endDate: same }])).toBe(0)
   })
 
+  // TC-AGG-005: ゼロ除算ガード — startDate === endDate のとき 0 を返す
+  it('TC-AGG-005: startDate === endDate の単一アイテムはゼロ除算を回避し 0 を返す', () => {
+    const same = new Date('2026-03-15')
+    expect(calcMilestoneActualPct([{ actualPct: 80, startDate: same, endDate: same }])).toBe(0)
+  })
   it('期間が長いタスクが重みが大きい', () => {
     const s1 = new Date('2026-01-01')
     const e1 = new Date('2026-01-21')

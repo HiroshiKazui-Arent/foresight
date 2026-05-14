@@ -44,6 +44,16 @@ jobs:
         env:
           DATABASE_URL: postgresql://foresight:foresight_test@localhost:5432/foresight_test
 
+      - name: Run integration tests
+        run: npm run test:integration
+        env:
+          TEST_DATABASE_URL: postgresql://foresight:foresight_test@localhost:5432/foresight_test
+
+      - name: Check migration drift (TC-MODEL-008)
+        run: |
+          npx prisma generate
+          git diff --exit-code prisma/
+
       - run: npm run build
         env:
           DATABASE_URL: postgresql://foresight:foresight_test@localhost:5432/foresight_test
