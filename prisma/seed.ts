@@ -9,6 +9,8 @@ function addDays(date: Date, days: number): Date {
   return d
 }
 
+// v4.0: 4 ステータス + 未着手リスク の 5 種類デモを 1 タスク配下に配置
+// spec.md v4.0 / plans/spec-v4-reset.md Section 3.3 参照
 async function seedDemoMilestone(projectId: string, today: Date) {
   const ms3Start = addDays(today, -20)
   const ms3End = addDays(today, 20)
@@ -16,7 +18,7 @@ async function seedDemoMilestone(projectId: string, today: Date) {
   const ms3 = await prisma.milestone.create({
     data: {
       projectId,
-      name: '5状態デモ(M-03)',
+      name: '4状態デモ + 未着手リスク',
       startDate: ms3Start,
       endDate: ms3End,
       order: nextOrder,
@@ -26,7 +28,7 @@ async function seedDemoMilestone(projectId: string, today: Date) {
   const taskDemo = await prisma.task.create({
     data: {
       milestoneId: ms3.id,
-      name: 'GanttBar 5状態確認',
+      name: 'v4.0 状態確認',
       startDate: ms3Start,
       endDate: ms3End,
       order: 0,
@@ -34,67 +36,68 @@ async function seedDemoMilestone(projectId: string, today: Date) {
   })
 
   await Promise.all([
+    // 1. completed: actualStart + actualEnd 両方あり (緑バー、100%)
     prisma.todo.create({
       data: {
         taskId: taskDemo.id,
-        name: '[State0] 予定 — 開始日が未来',
-        weight: 20,
-        started: false,
-        completed: false,
-        startDate: addDays(today, 5),
-        endDate: addDays(today, 15),
+        name: '[completed] 期日内完了',
+        startDate: addDays(today, -20),
+        endDate: addDays(today, -5),
+        actualStartDate: addDays(today, -18),
+        actualEndDate: addDays(today, -8),
         order: 0,
       },
     }),
+    // 2. in-progress (順調): actualStart あり / actualEnd なし / actualPct >= scheduledPct
+    //   進行中で 1/2 ToDo 完了相当の挙動を作るため、別 Task を Task1 に追加して
+    //   集計上 actualPct >= scheduledPct になるよう調整するのは G1 完成時 (S8) で行う。
+    //   ここでは単一 ToDo で「着手済み・未完」状態を作る。
     prisma.todo.create({
       data: {
         taskId: taskDemo.id,
-        name: '[State1] 完了 — 期日内完了',
-        weight: 20,
-        started: true,
-        completed: true,
-        startedAt: addDays(today, -18),
-        completedAt: addDays(today, -8),
-        startDate: addDays(today, -20),
-        endDate: addDays(today, -5),
+        name: '[in-progress 順調] 着手済み・未完',
+        startDate: addDays(today, -10),
+        endDate: addDays(today, 10),
+        actualStartDate: addDays(today, -10),
+        actualEndDate: null,
         order: 1,
       },
     }),
+    // 3. in-progress (遅延): actualStart あり / actualEnd なし / actualPct < scheduledPct
+    //   このサンプルは Task 単位での actualPct と scheduledPct の比較で「遅延」に倒れる
+    //   よう、開始日からかなり経過しても完了していない状態にする
     prisma.todo.create({
       data: {
         taskId: taskDemo.id,
-        name: '[State2] 遅延(期日前) — 進捗遅れ',
-        weight: 20,
-        started: true,
-        completed: false,
-        startedAt: addDays(today, -10),
-        startDate: addDays(today, -10),
-        endDate: addDays(today, 10),
+        name: '[delayed 進行中] 遅延中',
+        startDate: addDays(today, -15),
+        endDate: addDays(today, -3),
+        actualStartDate: addDays(today, -15),
+        actualEndDate: null,
         order: 2,
       },
     }),
+    // 4. not-started (開始日前): actualStart なし / startDate 未来
     prisma.todo.create({
       data: {
         taskId: taskDemo.id,
-        name: '[State3] 超過 — 期日を過ぎて未完',
-        weight: 20,
-        started: true,
-        completed: false,
-        startedAt: addDays(today, -15),
-        startDate: addDays(today, -15),
-        endDate: addDays(today, -3),
+        name: '[not-started] 開始日が未来',
+        startDate: addDays(today, 5),
+        endDate: addDays(today, 15),
+        actualStartDate: null,
+        actualEndDate: null,
         order: 3,
       },
     }),
+    // 5. not-started-risk (delayed の subset): actualStart なし / startDate 過去
     prisma.todo.create({
       data: {
         taskId: taskDemo.id,
-        name: '[State4] 未着 — 開始日超過・未開始',
-        weight: 20,
-        started: false,
-        completed: false,
+        name: '[delayed 未着手リスク] 開始日超過・未着手',
         startDate: addDays(today, -8),
         endDate: addDays(today, 5),
+        actualStartDate: null,
+        actualEndDate: null,
         order: 4,
       },
     }),
@@ -117,15 +120,15 @@ async function main() {
   })
 
   // ──────────────────────────────────────────────
-  // TodoTemplate: Task 作成時に自動展開される 6 件(M-02)
+  // TodoTemplate: Task 作成時に自動展開される標準 5 件 (v4.0)
+  // spec.md v4.0 / plans/spec-v4-reset.md 1.3 参照
   // ──────────────────────────────────────────────
   const todoTemplates = [
     { name: '画面設計', order: 1 },
     { name: 'データベース設計', order: 2 },
     { name: 'バックエンド開発', order: 3 },
     { name: 'フロントエンド開発', order: 4 },
-    { name: 'テストコードの実装', order: 5 },
-    { name: 'テスト・レビュー', order: 6 },
+    { name: 'テスト', order: 5 },
   ]
   for (const t of todoTemplates) {
     await prisma.todoTemplate.upsert({
@@ -153,11 +156,10 @@ async function main() {
     include: { milestones: true },
   })
   if (existing) {
-    // M-03: 5状態デモミルストーンが未存在なら追加
-    const demoMsExists = existing.milestones.some((m) => m.name === '5状態デモ(M-03)')
+    const demoMsExists = existing.milestones.some((m) => m.name === '4状態デモ + 未着手リスク')
     if (!demoMsExists) {
       await seedDemoMilestone(existing.id, today)
-      console.log('Seed: 5状態デモ(M-03) を追加しました。')
+      console.log('Seed: 4状態デモ を追加しました。')
     } else {
       console.log('Seed: テストプロジェクトは既に存在します。スキップ。')
     }
@@ -175,7 +177,7 @@ async function main() {
   await prisma.projectMember.create({ data: { projectId: project.id, userId: admin.id } })
   await prisma.projectMember.create({ data: { projectId: project.id, userId: pm.id } })
 
-  // ── Milestone 1 ──
+  // ── Milestone 1 ── 要件定義フェーズ (一部 ToDo は完了済み)
   const ms1 = await prisma.milestone.create({
     data: {
       projectId: project.id,
@@ -205,19 +207,16 @@ async function main() {
     },
   })
 
-  // task1_1 の ToDo x3 (weights: 33/33/34, 進捗あり)
-  const t1_1_todos = await Promise.all([
+  // task1_1 の ToDo x3 (1/2 完了 + 1 進行中)
+  await Promise.all([
     prisma.todo.create({
       data: {
         taskId: task1_1.id,
         name: '利用者インタビュー',
-        weight: 33,
-        started: true,
-        completed: true,
-        startedAt: ms1Start,
-        completedAt: addDays(ms1Start, 5),
         startDate: ms1Start,
         endDate: addDays(ms1Start, 5),
+        actualStartDate: ms1Start,
+        actualEndDate: addDays(ms1Start, 5),
         order: 0,
       },
     }),
@@ -225,13 +224,10 @@ async function main() {
       data: {
         taskId: task1_1.id,
         name: 'ペルソナ定義',
-        weight: 33,
-        started: true,
-        completed: true,
-        startedAt: addDays(ms1Start, 5),
-        completedAt: addDays(ms1Start, 10),
         startDate: addDays(ms1Start, 5),
         endDate: addDays(ms1Start, 10),
+        actualStartDate: addDays(ms1Start, 5),
+        actualEndDate: addDays(ms1Start, 10),
         order: 1,
       },
     }),
@@ -239,23 +235,21 @@ async function main() {
       data: {
         taskId: task1_1.id,
         name: 'ユースケース整理',
-        weight: 34,
-        completed: false,
         startDate: addDays(ms1Start, 10),
         endDate: addDays(ms1Start, 15),
+        actualStartDate: addDays(ms1Start, 10),
+        actualEndDate: null,
         order: 2,
       },
     }),
   ])
 
-  // task1_2 の ToDo x3 (weights: 33/33/34, 一部進捗)
+  // task1_2 の ToDo x3 (すべて未着手)
   await Promise.all([
     prisma.todo.create({
       data: {
         taskId: task1_2.id,
         name: '機能一覧作成',
-        weight: 33,
-        completed: false,
         startDate: addDays(ms1Start, 15),
         endDate: addDays(ms1Start, 20),
         order: 0,
@@ -265,8 +259,6 @@ async function main() {
       data: {
         taskId: task1_2.id,
         name: '画面設計書(ワイヤーフレーム)',
-        weight: 33,
-        completed: false,
         startDate: addDays(ms1Start, 20),
         endDate: addDays(ms1Start, 25),
         order: 1,
@@ -276,8 +268,6 @@ async function main() {
       data: {
         taskId: task1_2.id,
         name: 'レビュー・承認',
-        weight: 34,
-        completed: false,
         startDate: addDays(ms1Start, 25),
         endDate: ms1End,
         order: 2,
@@ -285,36 +275,7 @@ async function main() {
     }),
   ])
 
-  // DailyReport サンプル (task1_1 の最初の2件)
-  const yesterday = addDays(today, -1)
-  await prisma.dailyReport.create({
-    data: {
-      todoId: t1_1_todos[0].id,
-      reportedBy: admin.id,
-      date: yesterday,
-      completed: true,
-      comment: '予定通り完了',
-    },
-  })
-  await prisma.dailyReport.create({
-    data: {
-      todoId: t1_1_todos[1].id,
-      reportedBy: admin.id,
-      date: yesterday,
-      completed: true,
-    },
-  })
-  await prisma.dailyReport.create({
-    data: {
-      todoId: t1_1_todos[2].id,
-      reportedBy: pm.id,
-      date: today,
-      completed: false,
-      comment: '残り40%、明日完了予定',
-    },
-  })
-
-  // ── Milestone 2 ──  (M-03: 5状態デモ用)
+  // ── Milestone 2 ── 開発フェーズ (すべて未着手、未来)
   const ms2 = await prisma.milestone.create({
     data: {
       projectId: project.id,
@@ -344,14 +305,11 @@ async function main() {
     },
   })
 
-  // task2_1, task2_2 各 ToDo x2 (weights: 50/50)
   await Promise.all([
     prisma.todo.create({
       data: {
         taskId: task2_1.id,
         name: 'API設計',
-        weight: 50,
-        completed: false,
         startDate: ms2Start,
         endDate: addDays(ms2Start, 7),
         order: 0,
@@ -361,8 +319,6 @@ async function main() {
       data: {
         taskId: task2_1.id,
         name: 'API実装',
-        weight: 50,
-        completed: false,
         startDate: addDays(ms2Start, 7),
         endDate: addDays(ms2Start, 15),
         order: 1,
@@ -372,8 +328,6 @@ async function main() {
       data: {
         taskId: task2_2.id,
         name: 'UI実装',
-        weight: 50,
-        completed: false,
         startDate: addDays(ms2Start, 15),
         endDate: addDays(ms2Start, 22),
         order: 0,
@@ -383,8 +337,6 @@ async function main() {
       data: {
         taskId: task2_2.id,
         name: '結合テスト',
-        weight: 50,
-        completed: false,
         startDate: addDays(ms2Start, 22),
         endDate: ms2End,
         order: 1,
@@ -392,7 +344,7 @@ async function main() {
     }),
   ])
 
-  // ── Milestone 3 ── (M-03: GanttBar 5状態デモ用)
+  // ── Milestone 3 ── 4 状態デモ + 未着手リスク
   await seedDemoMilestone(project.id, today)
 
   console.log('Seed complete:', {
