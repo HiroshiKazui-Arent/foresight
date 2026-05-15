@@ -166,6 +166,7 @@ describe('TC-DATA-010: actualPct はアプリ層で計算される (DB 列とし
           taskId: task.id,
           name: 'T1',
           weight: 50,
+          started: true, // M-03 CHECK 制約 (completed=true → started=true)
           completed: true,
           startDate: new Date('2026-01-01'),
           endDate: new Date('2026-01-15'),
@@ -202,7 +203,11 @@ describe('TC-DATA-011: Todo.completed 更新で Task actualPct が変化する',
     const todosBefore = await prisma.todo.findMany({ where: { taskId: task.id } })
     expect(calcTaskActualPct(todosBefore)).toBe(0)
 
-    await prisma.todo.update({ where: { id: todo.id }, data: { completed: true } })
+    // M-03 CHECK 制約 (completed=true → started=true) に従い started も同時に true へ
+    await prisma.todo.update({
+      where: { id: todo.id },
+      data: { started: true, completed: true },
+    })
 
     const todosAfter = await prisma.todo.findMany({ where: { taskId: task.id } })
     expect(calcTaskActualPct(todosAfter)).toBe(100)

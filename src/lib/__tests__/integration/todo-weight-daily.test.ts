@@ -74,11 +74,13 @@ describe('TC-WEIGHT-008: ToDo 追加時の completed 保持', () => {
     const task = await createTask(milestone.id)
 
     // 既存 ToDo を作成 (completed=true)
+    // M-03 CHECK 制約 (completed=true → started=true) に従い started: true も必須
     const existingTodo = await prisma.todo.create({
       data: {
         taskId: task.id,
         name: 'Existing',
         weight: 100,
+        started: true,
         completed: true,
         startDate: new Date('2026-01-01'),
         endDate: new Date('2026-01-31'),
