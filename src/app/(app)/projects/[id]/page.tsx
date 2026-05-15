@@ -1,7 +1,16 @@
 import { getProject } from '@/server/actions/project'
 import { requireProjectMember } from '@/lib/authz'
 import { TreeView } from '@/components/tree-view/tree-view'
-import Link from 'next/link'
+import { G1PageClient } from './g1-client'
+import type { ProjectSummary, DelaySummary } from '@/lib/summary'
+
+// S8 で実データから生成されるまでの placeholder 値
+const PLACEHOLDER_PROJECT_SUMMARY: ProjectSummary = { scheduledPct: 0, actualPct: 0 }
+const PLACEHOLDER_DELAY_SUMMARY: DelaySummary = {
+  delayedCount: 0,
+  maxDelayDays: 0,
+  notStartedRiskCount: 0,
+}
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -12,36 +21,24 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href="/projects" className="text-sm text-gray-500 hover:text-gray-700">
-            ← プロジェクト一覧
-          </Link>
-          <h1 className="text-2xl font-bold">{project.name}</h1>
-        </div>
-        <div className="flex gap-2">
-          <Link
-            href={`/projects/${id}/dashboard`}
-            className="inline-flex items-center justify-center rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600"
-          >
-            予兆検知
-          </Link>
-          <Link
-            href={`/projects/${id}/daily`}
-            className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-          >
-            日報入力
-          </Link>
-          <Link
-            href={`/projects/${id}/settings`}
-            className="inline-flex items-center justify-center rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-300"
-          >
-            設定
-          </Link>
-        </div>
-      </div>
+      {/* G1 ガント表示 layout shell */}
+      <G1PageClient
+        projectId={id}
+        projectName={project.name}
+        projectStart={project.startDate}
+        projectEnd={project.endDate}
+        today={today}
+        projectSummary={PLACEHOLDER_PROJECT_SUMMARY}
+        delaySummary={PLACEHOLDER_DELAY_SUMMARY}
+      />
 
-      <TreeView project={project} today={today} mode="view" />
+      {/* 暫定: 既存 TreeView (S6 で G2 工程管理に置き換わるまで) */}
+      <div className="mt-8">
+        <p className="mb-2 text-xs text-gray-400">
+          ※ 以下は v3.x TreeView (S6 で G2 工程管理に置き換え予定)
+        </p>
+        <TreeView project={project} today={today} mode="view" />
+      </div>
     </div>
   )
 }
