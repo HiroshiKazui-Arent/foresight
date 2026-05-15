@@ -1,12 +1,12 @@
 'use client'
 
-interface CompletedCheckboxProps {
+interface StartedCheckboxProps {
   checked: boolean
   onChange: (checked: boolean) => void
   disabled?: boolean
 }
 
-export function CompletedCheckbox({ checked, onChange, disabled }: CompletedCheckboxProps) {
+export function StartedCheckbox({ checked, onChange, disabled }: StartedCheckboxProps) {
   return (
     <label
       className={`flex items-center gap-1 ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
@@ -16,10 +16,10 @@ export function CompletedCheckbox({ checked, onChange, disabled }: CompletedChec
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
         disabled={disabled}
-        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-400 disabled:opacity-50"
-        aria-label="完了"
+        className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-400 disabled:opacity-50"
+        aria-label="開始"
       />
-      <span className="text-xs text-gray-500">完了</span>
+      <span className="text-xs text-gray-500">開始</span>
     </label>
   )
 }

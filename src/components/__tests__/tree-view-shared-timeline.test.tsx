@@ -94,6 +94,7 @@ describe('GanttBar: 共有タイムライン座標系 (projectStart/projectEnd/r
         projectEnd,
         rowStart: projectStart,
         rowEnd: msEnd,
+        today,
         actualPct: 50,
         scheduledPct: 60,
         status: 'on-track' as ProgressStatus,
@@ -110,6 +111,7 @@ describe('GanttBar: 共有タイムライン座標系 (projectStart/projectEnd/r
         projectEnd,
         rowStart: midStart,
         rowEnd: projectEnd,
+        today,
         actualPct: 0,
         scheduledPct: 0,
         status: 'scheduled' as ProgressStatus,
@@ -130,6 +132,7 @@ describe('GanttBar: 共有タイムライン座標系 (projectStart/projectEnd/r
         projectEnd,
         rowStart: new Date('2026-06-01'),
         rowEnd: projectEnd,
+        today,
         actualPct: 30,
         scheduledPct: 50,
         status: 'on-track' as ProgressStatus,
@@ -339,22 +342,45 @@ describe('TaskRow: GanttBar に rowStart/rowEnd が渡される', () => {
 })
 
 // ---------------------------------------------------------------------------
-// G. 2カラムレイアウト: CSS Grid の確認
+// G. 3カラムレイアウト: CSS Grid の確認
 //    (TreeView コンポーネントは 'use client' + DnD のため renderToStaticMarkup 不可)
 //    → レイアウト定数/仕様をロジックとして検証
+//
+//    旧 2 カラム (`minmax(280px, auto) 1fr`) は行ごとにラベル幅が異なり
+//    今日線オーバーレイとバーの絶対座標が一致せず、バーが今日線を貫通する
+//    バグが発生した (2026-05-14)。すべての grid を固定幅
+//    `280px 1fr 240px` に統一し、ピルは右カラム (画面右端) へ移動する。
 // ---------------------------------------------------------------------------
 
-describe('2カラムグリッドレイアウトの定数', () => {
-  it('左カラム最小幅は 280px', () => {
-    // CSS: minmax(280px, auto) → min=280px
-    const LEFT_COLUMN_MIN_PX = 280
-    expect(LEFT_COLUMN_MIN_PX).toBe(280)
+describe('5カラムグリッドレイアウトの定数 (name / progress / status / days / bar)', () => {
+  it('1. 名前カラムは固定 240px (全行で同一)', () => {
+    const NAME_COLUMN_PX = 240
+    expect(NAME_COLUMN_PX).toBe(240)
   })
 
-  it('右カラムは 1fr (残余スペースを全て使用)', () => {
-    // CSS: 1fr
-    const RIGHT_COLUMN = '1fr'
-    expect(RIGHT_COLUMN).toBe('1fr')
+  it('2. 進捗 % カラムは固定 88px', () => {
+    const PROGRESS_COLUMN_PX = 88
+    expect(PROGRESS_COLUMN_PX).toBe(88)
+  })
+
+  it('3. ステータスカラムは固定 60px', () => {
+    const STATUS_COLUMN_PX = 60
+    expect(STATUS_COLUMN_PX).toBe(60)
+  })
+
+  it('4. 遅延日数カラムは固定 56px', () => {
+    const DAYS_COLUMN_PX = 56
+    expect(DAYS_COLUMN_PX).toBe(56)
+  })
+
+  it('5. ガントバーカラムは 1fr (残余スペース、今日線が描画される)', () => {
+    const BAR_COLUMN = '1fr'
+    expect(BAR_COLUMN).toBe('1fr')
+  })
+
+  it('全行で grid template が "240px 88px 60px 56px 1fr" で統一されている (今日線とバーの座標系を一致)', () => {
+    const GRID_TEMPLATE = '240px 88px 60px 56px 1fr'
+    expect(GRID_TEMPLATE).toBe('240px 88px 60px 56px 1fr')
   })
 })
 

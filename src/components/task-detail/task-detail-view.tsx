@@ -153,9 +153,14 @@ export function TaskDetailView({ task, todos, projectId, today }: Props) {
         </div>
         <div className="relative">
           <GanttBar
+            projectStart={task.startDate}
+            projectEnd={task.endDate}
+            rowStart={task.startDate}
+            rowEnd={task.endDate}
+            today={today}
             actualPct={task.actualPct}
             scheduledPct={task.scheduledPct}
-            status={task.status}
+            renderStatus={task.renderStatus}
           />
           {showTodayLine && (
             <div
@@ -385,9 +390,14 @@ export function TaskDetailView({ task, todos, projectId, today }: Props) {
                   style={{ marginLeft: `${offsetPct}%`, width: `${widthPct}%` }}
                 >
                   <GanttBar
+                    projectStart={todo.startDate}
+                    projectEnd={todo.endDate}
+                    rowStart={todo.startDate}
+                    rowEnd={todo.endDate}
+                    today={today}
                     actualPct={todo.progressData.actualPct}
                     scheduledPct={todo.progressData.scheduledPct}
-                    status={todo.progressData.status}
+                    renderStatus={todo.progressData.renderStatus}
                   />
                 </div>
               </div>

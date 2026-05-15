@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { buildTodoProgressData } from '@/components/tree-view/progress-utils'
+import {
+  buildTodoProgressData,
+  buildTaskProgressData,
+  buildMilestoneProgressData,
+  buildProjectProgressData,
+} from '@/components/tree-view/progress-utils'
 
 // ─── fixtures ───────────────────────────────────────────────────────────────
 
@@ -142,5 +147,398 @@ describe('buildTodoProgressData', () => {
       )
       expect(result.scheduledPct).toBe(100)
     })
+  })
+})
+
+// ─── buildTodoProgressData: renderStatus フィールド ─────────────────────────
+
+describe('buildTodoProgressData: renderStatus フィールド', () => {
+  const startDate = new Date('2026-05-01')
+  const endDate = new Date('2026-05-31')
+
+  it('completed=true → renderStatus が completed', () => {
+    const result = buildTodoProgressData(
+      { completed: true, started: true, startDate, endDate },
+      new Date('2026-05-15'),
+    )
+    expect(result.renderStatus).toBe('completed')
+  })
+
+  it('today < startDate → renderStatus が scheduled', () => {
+    const result = buildTodoProgressData(
+      { completed: false, started: false, startDate, endDate },
+      new Date('2026-04-30'),
+    )
+    expect(result.renderStatus).toBe('scheduled')
+  })
+
+  it('started=false, today in range → renderStatus が not-started-overdue', () => {
+    const result = buildTodoProgressData(
+      { completed: false, started: false, startDate, endDate },
+      new Date('2026-05-15'),
+    )
+    expect(result.renderStatus).toBe('not-started-overdue')
+  })
+
+  it('started 省略時 (undefined) → not-started-overdue (today in range)', () => {
+    // started を省略: 後方互換のため false 扱い
+    const result = buildTodoProgressData(
+      { completed: false, startDate, endDate },
+      new Date('2026-05-15'),
+    )
+    expect(result.renderStatus).toBe('not-started-overdue')
+  })
+
+  it('started=true, today > endDate → renderStatus が overdue-past-deadline', () => {
+    const result = buildTodoProgressData(
+      { completed: false, started: true, startDate, endDate },
+      new Date('2026-06-10'),
+    )
+    expect(result.renderStatus).toBe('overdue-past-deadline')
+  })
+
+  it('started=true, today in range → renderStatus が delayed-pre-deadline', () => {
+    const result = buildTodoProgressData(
+      { completed: false, started: true, startDate, endDate },
+      new Date('2026-05-15'),
+    )
+    expect(result.renderStatus).toBe('delayed-pre-deadline')
+  })
+})
+
+// ─── buildTaskProgressData: renderStatus フィールド ─────────────────────────
+
+describe('buildTaskProgressData: renderStatus フィールド', () => {
+  const taskStart = new Date('2026-05-01')
+  const taskEnd = new Date('2026-05-31')
+
+  it('全 todo 完了 → renderStatus が completed', () => {
+    const task = {
+      startDate: taskStart,
+      endDate: taskEnd,
+      todos: [
+        { completed: true, started: true, weight: 50 },
+        { completed: true, started: true, weight: 50 },
+      ],
+    }
+    const result = buildTaskProgressData(task, new Date('2026-05-15'))
+    expect(result.renderStatus).toBe('completed')
+  })
+
+  it('today < taskStart → renderStatus が scheduled', () => {
+    const task = {
+      startDate: taskStart,
+      endDate: taskEnd,
+      todos: [{ completed: false, started: false, weight: 100 }],
+    }
+    const result = buildTaskProgressData(task, new Date('2026-04-15'))
+    expect(result.renderStatus).toBe('scheduled')
+  })
+
+  it('anyChildStarted=false, today in range → renderStatus が not-started-overdue', () => {
+    const task = {
+      startDate: taskStart,
+      endDate: taskEnd,
+      todos: [
+        { completed: false, started: false, weight: 50 },
+        { completed: false, started: false, weight: 50 },
+      ],
+    }
+    const result = buildTaskProgressData(task, new Date('2026-05-15'))
+    expect(result.renderStatus).toBe('not-started-overdue')
+  })
+
+  it('anyChildStarted=true → renderStatus が delayed-pre-deadline (not-started-overdue にならない)', () => {
+    const task = {
+      startDate: taskStart,
+      endDate: taskEnd,
+      todos: [
+        { completed: false, started: true, weight: 50 },
+        { completed: false, started: false, weight: 50 },
+      ],
+    }
+    // actualPct=0 (both incomplete), scheduledPct > 0 (today=05-15 内), anyChildStarted=true
+    // → step 2 skip → step 6 (delayed-pre-deadline)
+    const result = buildTaskProgressData(task, new Date('2026-05-15'))
+    expect(result.renderStatus).toBe('delayed-pre-deadline')
+  })
+
+  it('today > taskEnd, actualPct < 100 → renderStatus が overdue-past-deadline', () => {
+    const task = {
+      startDate: taskStart,
+      endDate: taskEnd,
+      todos: [
+        { completed: true, started: true, weight: 50 },
+        { completed: false, started: true, weight: 50 },
+      ],
+    }
+    const result = buildTaskProgressData(task, new Date('2026-06-10'))
+    expect(result.renderStatus).toBe('overdue-past-deadline')
+  })
+
+  it('actualPct >= scheduledPct → renderStatus が ahead-of-schedule', () => {
+    // today=05-01 (開始日): scheduledPct=0, actualPct=0 → ahead-of-schedule (0>=0)
+    const task = {
+      startDate: taskStart,
+      endDate: taskEnd,
+      todos: [{ completed: false, started: true, weight: 100 }],
+    }
+    const result = buildTaskProgressData(task, taskStart)
+    expect(result.renderStatus).toBe('ahead-of-schedule')
+  })
+
+  it('前倒し集約 (子 ToDo 4/5 completed = actualPct=80) → renderStatus が ahead-of-schedule', () => {
+    // today=05-16: scheduledPct=50%, actualPct=80% → ahead-of-schedule
+    const task = {
+      startDate: taskStart,
+      endDate: taskEnd,
+      todos: [
+        { completed: true, started: true, weight: 20 },
+        { completed: true, started: true, weight: 20 },
+        { completed: true, started: true, weight: 20 },
+        { completed: true, started: true, weight: 20 },
+        { completed: false, started: true, weight: 20 },
+      ],
+    }
+    const result = buildTaskProgressData(task, new Date('2026-05-16'))
+    expect(result.renderStatus).toBe('ahead-of-schedule')
+  })
+})
+
+// ─── buildMilestoneProgressData: renderStatus フィールド ────────────────────
+
+describe('buildMilestoneProgressData: renderStatus フィールド', () => {
+  it('today < milestone.startDate → renderStatus が scheduled', () => {
+    const milestone = {
+      startDate: new Date('2026-05-01'),
+      endDate: new Date('2026-05-31'),
+      tasks: [
+        {
+          startDate: new Date('2026-05-01'),
+          endDate: new Date('2026-05-31'),
+          todos: [{ completed: false, started: false, weight: 100 }],
+        },
+      ],
+    }
+    const result = buildMilestoneProgressData(milestone, new Date('2026-04-15'))
+    expect(result.renderStatus).toBe('scheduled')
+  })
+
+  it('全 todo 完了 → renderStatus が completed', () => {
+    const milestone = {
+      startDate: new Date('2026-05-01'),
+      endDate: new Date('2026-05-31'),
+      tasks: [
+        {
+          startDate: new Date('2026-05-01'),
+          endDate: new Date('2026-05-31'),
+          todos: [
+            { completed: true, started: true, weight: 50 },
+            { completed: true, started: true, weight: 50 },
+          ],
+        },
+      ],
+    }
+    const result = buildMilestoneProgressData(milestone, new Date('2026-05-15'))
+    expect(result.renderStatus).toBe('completed')
+  })
+
+  it('today > endDate, actualPct < 100 → renderStatus が overdue-past-deadline', () => {
+    const milestone = {
+      startDate: new Date('2026-05-01'),
+      endDate: new Date('2026-05-31'),
+      tasks: [
+        {
+          startDate: new Date('2026-05-01'),
+          endDate: new Date('2026-05-31'),
+          todos: [
+            { completed: true, started: true, weight: 50 },
+            { completed: false, started: true, weight: 50 },
+          ],
+        },
+      ],
+    }
+    const result = buildMilestoneProgressData(milestone, new Date('2026-06-10'))
+    expect(result.renderStatus).toBe('overdue-past-deadline')
+  })
+
+  it('前倒し集約 (子 ToDo 4/5 completed = actualPct=80) → renderStatus が ahead-of-schedule', () => {
+    // today=05-16: scheduledPct=50%, actualPct=80% → ahead-of-schedule
+    const milestone = {
+      startDate: new Date('2026-05-01'),
+      endDate: new Date('2026-05-31'),
+      tasks: [
+        {
+          startDate: new Date('2026-05-01'),
+          endDate: new Date('2026-05-31'),
+          todos: [
+            { completed: true, started: true, weight: 20 },
+            { completed: true, started: true, weight: 20 },
+            { completed: true, started: true, weight: 20 },
+            { completed: true, started: true, weight: 20 },
+            { completed: false, started: true, weight: 20 },
+          ],
+        },
+      ],
+    }
+    const result = buildMilestoneProgressData(milestone, new Date('2026-05-16'))
+    expect(result.renderStatus).toBe('ahead-of-schedule')
+  })
+})
+
+// ─── buildProjectProgressData: renderStatus フィールド ──────────────────────
+
+describe('buildProjectProgressData: renderStatus フィールド', () => {
+  it('空 milestones → actualPct=0, scheduledPct=0, status=scheduled (エラーなし)', () => {
+    const result = buildProjectProgressData([], new Date('2026-05-15'))
+    expect(result.actualPct).toBe(0)
+    expect(result.status).toBe('scheduled')
+  })
+
+  it('前倒し集約 (actualPct >= scheduledPct) → renderStatus が ahead-of-schedule', () => {
+    // today=05-16: scheduledPct=50%, milestone actualPct=80% → ahead-of-schedule
+    const milestones = [
+      {
+        startDate: new Date('2026-05-01'),
+        endDate: new Date('2026-05-31'),
+        tasks: [
+          {
+            startDate: new Date('2026-05-01'),
+            endDate: new Date('2026-05-31'),
+            todos: [
+              { completed: true, started: true, weight: 20 },
+              { completed: true, started: true, weight: 20 },
+              { completed: true, started: true, weight: 20 },
+              { completed: true, started: true, weight: 20 },
+              { completed: false, started: true, weight: 20 },
+            ],
+          },
+        ],
+      },
+    ]
+    const result = buildProjectProgressData(milestones, new Date('2026-05-16'))
+    expect(result.renderStatus).toBe('ahead-of-schedule')
+  })
+
+  it('全完了 (actualPct=100) → renderStatus が completed', () => {
+    const milestones = [
+      {
+        startDate: new Date('2026-05-01'),
+        endDate: new Date('2026-05-31'),
+        tasks: [
+          {
+            startDate: new Date('2026-05-01'),
+            endDate: new Date('2026-05-31'),
+            todos: [
+              { completed: true, started: true, weight: 50 },
+              { completed: true, started: true, weight: 50 },
+            ],
+          },
+        ],
+      },
+    ]
+    const result = buildProjectProgressData(milestones, new Date('2026-05-15'))
+    expect(result.renderStatus).toBe('completed')
+  })
+
+  it('anyChildStarted 再帰判定: todos の started=true が Milestone 経由で伝播 → delayed-pre-deadline', () => {
+    // actualPct=0 (both incomplete), scheduledPct > 0 (today=05-15 内), anyChildStarted=true
+    // → step 2 skip → step 6 (delayed-pre-deadline)
+    const milestones = [
+      {
+        startDate: new Date('2026-05-01'),
+        endDate: new Date('2026-05-31'),
+        tasks: [
+          {
+            startDate: new Date('2026-05-01'),
+            endDate: new Date('2026-05-31'),
+            todos: [
+              { completed: false, started: true, weight: 50 },
+              { completed: false, started: false, weight: 50 },
+            ],
+          },
+        ],
+      },
+    ]
+    const result = buildProjectProgressData(milestones, new Date('2026-05-15'))
+    expect(result.renderStatus).toBe('delayed-pre-deadline')
+  })
+
+  it('milestones に tasks=[] のみ含む (project 内に task ゼロ) → not-started-overdue (空配列は false 扱い)', () => {
+    // 空 tasks→空 todos の連鎖で anyChildStarted=false。actualPct=0、today >= startDate なので
+    // step 2 (not-started-overdue) が発火
+    const milestones = [
+      {
+        startDate: new Date('2026-05-01'),
+        endDate: new Date('2026-05-31'),
+        tasks: [],
+      },
+    ]
+    const result = buildProjectProgressData(milestones, new Date('2026-05-15'))
+    expect(result.renderStatus).toBe('not-started-overdue')
+  })
+
+  it('anyChildStarted=false → not-started-overdue', () => {
+    const milestones = [
+      {
+        startDate: new Date('2026-05-01'),
+        endDate: new Date('2026-05-31'),
+        tasks: [
+          {
+            startDate: new Date('2026-05-01'),
+            endDate: new Date('2026-05-31'),
+            todos: [
+              { completed: false, started: false, weight: 50 },
+              { completed: false, started: false, weight: 50 },
+            ],
+          },
+        ],
+      },
+    ]
+    const result = buildProjectProgressData(milestones, new Date('2026-05-15'))
+    expect(result.renderStatus).toBe('not-started-overdue')
+  })
+})
+
+// ─── buildTodoProgressData: ahead-of-schedule 不到達確認 ────────────────────
+
+describe('buildTodoProgressData: ahead-of-schedule 不到達 (M-04 回帰)', () => {
+  const startDate = new Date('2026-05-01')
+  const endDate = new Date('2026-05-31')
+
+  it('completed=true → completed (ahead-of-schedule にならない)', () => {
+    const result = buildTodoProgressData(
+      { completed: true, started: true, startDate, endDate },
+      new Date('2026-05-15'),
+    )
+    expect(result.renderStatus).toBe('completed')
+    expect(result.renderStatus).not.toBe('ahead-of-schedule')
+  })
+
+  it('completed=false, today < startDate → scheduled (ahead-of-schedule にならない)', () => {
+    const result = buildTodoProgressData(
+      { completed: false, started: false, startDate, endDate },
+      new Date('2026-04-30'),
+    )
+    expect(result.renderStatus).toBe('scheduled')
+    expect(result.renderStatus).not.toBe('ahead-of-schedule')
+  })
+
+  it('completed=false, today in range, started=false → not-started-overdue (ahead-of-schedule にならない)', () => {
+    const result = buildTodoProgressData(
+      { completed: false, started: false, startDate, endDate },
+      new Date('2026-05-15'),
+    )
+    expect(result.renderStatus).toBe('not-started-overdue')
+    expect(result.renderStatus).not.toBe('ahead-of-schedule')
+  })
+
+  it('completed=false, today in range, started=true → delayed-pre-deadline (ahead-of-schedule にならない)', () => {
+    const result = buildTodoProgressData(
+      { completed: false, started: true, startDate, endDate },
+      new Date('2026-05-15'),
+    )
+    expect(result.renderStatus).toBe('delayed-pre-deadline')
+    expect(result.renderStatus).not.toBe('ahead-of-schedule')
   })
 })

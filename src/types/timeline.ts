@@ -1,5 +1,5 @@
 import type { TaskProgressData } from '@/components/tree-view/progress-utils'
-import type { ProgressBarData } from '@/types/progress'
+import type { ProgressBarData, RenderStatus } from '@/types/progress'
 
 export type TimelineTodo = {
   id: string
@@ -7,7 +7,7 @@ export type TimelineTodo = {
   startDate: Date
   endDate: Date
   completed: boolean
-  progressData: ProgressBarData
+  progressData: ProgressBarData & { renderStatus: RenderStatus }
 }
 
 export type TimelineTask = TaskProgressData & {
@@ -21,5 +21,5 @@ export type TimelineMilestone = {
   name: string
   startDate: Date
   endDate: Date
-  progressData: ProgressBarData
+  progressData: ProgressBarData & { renderStatus: RenderStatus }
 }

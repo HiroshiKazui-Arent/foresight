@@ -87,3 +87,76 @@ test.describe('日報入力 (M-01: チェックボックスのみ)', () => {
     await expect(page).toHaveURL(/\/projects\/[a-z0-9]+$/)
   })
 })
+
+// M-03: デュアルチェックボックス + 5状態視覚確認
+test.describe('日報入力 (M-03: デュアルチェックボックス)', () => {
+  test('各 ToDo に「開始」チェックボックスが表示される', async ({ page }) => {
+    await navigateToDailyReport(page)
+
+    const startedCheckboxes = page.getByRole('checkbox', { name: '開始' })
+    await expect(startedCheckboxes.first()).toBeVisible()
+    const count = await startedCheckboxes.count()
+    expect(count).toBeGreaterThan(0)
+  })
+
+  test('「開始」と「完了」チェックボックスの件数が一致する', async ({ page }) => {
+    await navigateToDailyReport(page)
+
+    const startedCount = await page.getByRole('checkbox', { name: '開始' }).count()
+    const completedCount = await page.getByRole('checkbox', { name: '完了' }).count()
+    expect(startedCount).toBe(completedCount)
+    expect(startedCount).toBeGreaterThan(0)
+  })
+
+  test('未開始の ToDo は「完了」チェックボックスが disabled', async ({ page }) => {
+    await navigateToDailyReport(page)
+
+    // シードデータの "[State4]" ToDo は started=false (未着手 overdue)
+    await expect(page.getByText('[State4]')).toBeVisible()
+
+    // data-testid="todo-input-row" を持つ行の中で "[State4]" を含むものを特定
+    const state4Row = page
+      .locator('[data-testid="todo-input-row"]')
+      .filter({ has: page.getByText('[State4]') })
+    const completedCb = state4Row.getByRole('checkbox', { name: '完了' })
+    await expect(completedCb).toBeDisabled()
+  })
+
+  test('M-03 ハッピーパス: 「開始」→「完了」遷移 ([State4] 未着手 ToDo)', async ({ page }) => {
+    await navigateToDailyReport(page)
+
+    await expect(page.getByText('[State4]')).toBeVisible()
+
+    const state4Row = page
+      .locator('[data-testid="todo-input-row"]')
+      .filter({ has: page.getByText('[State4]') })
+    const startedCb = state4Row.getByRole('checkbox', { name: '開始' })
+    const completedCb = state4Row.getByRole('checkbox', { name: '完了' })
+
+    // 初期状態: 開始=false, 完了=disabled
+    await expect(startedCb).not.toBeChecked()
+    await expect(completedCb).toBeDisabled()
+
+    // 「開始」クリック → 完了が enabled に
+    await startedCb.click()
+    await expect(completedCb).toBeEnabled({ timeout: 5000 })
+    await expect(startedCb).toBeChecked()
+
+    // 「完了」クリック → 両方チェック済みに
+    await completedCb.click()
+    await expect(completedCb).toBeChecked({ timeout: 5000 })
+    await expect(startedCb).toBeChecked()
+  })
+
+  test('5状態デモ: ツリービューに超過・未着ステータスが表示される', async ({ page }) => {
+    await navigateToDailyReport(page)
+
+    // シードデータの [State3] / [State4] に対応するピルが表示される
+    await expect(page.getByText('[State3]')).toBeVisible()
+    await expect(page.getByText('[State4]')).toBeVisible()
+
+    // StatusPill に「超過」または「未着」ラベルが存在する
+    const overdueLabels = page.getByText(/超過|未着/)
+    await expect(overdueLabels.first()).toBeVisible()
+  })
+})

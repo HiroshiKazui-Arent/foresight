@@ -38,7 +38,10 @@ export function TaskRow({
   onUpdateTask,
   onAddTodo,
 }: TaskRowProps) {
-  const [expanded, setExpanded] = useState(false)
+  // デフォルト展開: マイルストーン → タスク → ToDo の 3 階層を最初から見せる
+  // (折りたたみのままだと ToDo が DB に存在しても UI 上見えず、進捗度の根拠が
+  // ユーザーに伝わらないため)
+  const [expanded, setExpanded] = useState(true)
   const todoListId = useId()
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -57,18 +60,18 @@ export function TaskRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="group ml-6 flex flex-col gap-1 rounded-md border border-transparent py-1 hover:border-gray-200 hover:bg-gray-50"
+      className="group flex flex-col gap-1 rounded-md border border-transparent py-1 hover:border-gray-200 hover:bg-gray-50"
     >
-      {/* 2カラムGrid: 左=ラベル+ピル、右=ガントバー */}
+      {/* 5カラムGrid (milestone と同一テンプレート): name / progress / status / days / bar */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(280px, auto) 1fr',
+          gridTemplateColumns: '240px 88px 60px 56px 1fr',
           alignItems: 'center',
         }}
       >
-        {/* 左カラム: ヘッダー */}
-        <div className="flex items-center gap-2">
+        {/* 1. 名前カラム: drag + chevron + name + link (pl-9 でタスク階層インデント) */}
+        <div className="flex min-w-0 items-center gap-2 pr-3 pl-9">
           {/* ドラッグハンドル (view モードのみ) */}
           {mode !== 'input' && (
             <button
@@ -82,25 +85,27 @@ export function TaskRow({
             </button>
           )}
 
-          {/* タスク名（インライン編集） + ToDo 展開トグル + V3 遷移リンク */}
+          {/* ToDo 展開トグル (マイルストーンと同サイズ・タスク名の前に配置) */}
+          {mode !== 'input' && task.todos.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setExpanded((prev) => !prev)}
+              className="text-gray-500 transition-transform hover:text-gray-700"
+              aria-label={expanded ? 'ToDo を折りたたむ' : 'ToDo を展開する'}
+              aria-expanded={expanded}
+              aria-controls={todoListId}
+            >
+              {expanded ? '▼' : '▶'}
+            </button>
+          )}
+
+          {/* タスク名（インライン編集） + V3 遷移リンク */}
           <div className="flex min-w-0 flex-1 items-center gap-1">
             <InlineEdit
               value={task.name}
               onSave={(newName) => onUpdateTask(task.id, newName)}
-              className="text-sm font-medium"
+              className="truncate text-sm font-medium"
             />
-            {mode !== 'input' && task.todos.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setExpanded((prev) => !prev)}
-                className="shrink-0 rounded p-1 text-xs text-gray-400 hover:text-gray-700"
-                aria-label={expanded ? 'ToDo を折りたたむ' : 'ToDo を展開する'}
-                aria-expanded={expanded}
-                aria-controls={todoListId}
-              >
-                {expanded ? '▾' : '▸'}
-              </button>
-            )}
             {mode !== 'input' && (
               <Link
                 href={`/projects/${projectId}/tasks/${task.id}`}
@@ -112,25 +117,40 @@ export function TaskRow({
               </Link>
             )}
           </div>
-
-          {/* 進捗情報 */}
-          <div className="flex shrink-0 items-center gap-2">
-            <ProgressPill actualPct={progress.actualPct} scheduledPct={progress.scheduledPct} />
-            <StatusPill status={progress.status} />
-            <DaysPill days={progress.daysDeviation} />
-          </div>
         </div>
 
-        {/* 右カラム: ガントバー */}
-        <div className="relative pr-2" style={{ height: '20px' }}>
+        {/* 2. 進捗 % */}
+        <div className="flex items-center justify-start px-1">
+          <ProgressPill actualPct={progress.actualPct} scheduledPct={progress.scheduledPct} />
+        </div>
+
+        {/* 3. ステータス */}
+        <div className="flex items-center justify-start px-1">
+          <StatusPill renderStatus={progress.renderStatus} />
+        </div>
+
+        {/* 4. 遅延日数 */}
+        <div className="flex items-center justify-start px-1">
+          <DaysPill
+            today={today}
+            rowEnd={progress.endDate}
+            actualPct={progress.actualPct}
+            scheduledPct={progress.scheduledPct}
+            durationDays={progress.durationDays}
+          />
+        </div>
+
+        {/* 5. ガントバー (共有タイムライン) */}
+        <div className="relative" style={{ height: '20px' }}>
           <GanttBar
             projectStart={projectStart}
             projectEnd={projectEnd}
             rowStart={task.startDate}
             rowEnd={task.endDate}
+            today={today}
             actualPct={progress.actualPct}
             scheduledPct={progress.scheduledPct}
-            status={progress.status}
+            renderStatus={progress.renderStatus}
           />
         </div>
       </div>
@@ -150,18 +170,26 @@ export function TaskRow({
         </div>
       )}
 
-      {/* input モード: ToDo 行の進捗入力 */}
+      {/* input モード: ToDo 行の進捗入力 (V1 と同じ 5 カラム + 完了チェックボックス) */}
       {mode === 'input' && task.todos.length > 0 && (
         <div className="flex flex-col">
           {task.todos.map((todo) => (
-            <TodoInputRow key={todo.id} todo={todo} projectId={projectId} />
+            <TodoInputRow
+              key={todo.id}
+              todo={todo}
+              projectId={projectId}
+              today={today}
+              projectStart={projectStart}
+              projectEnd={projectEnd}
+            />
           ))}
         </div>
       )}
 
-      {/* ToDo 追加ボタン (view モードのみ) */}
-      {mode !== 'input' && (
-        <div className="ml-6">
+      {/* ToDo 追加ボタン (view モード + タスク展開時のみ):
+          折りたたみ中に追加しても追加した ToDo が見えないため非表示にする */}
+      {mode !== 'input' && expanded && (
+        <div className="pl-[60px]">
           <AddRowButton
             label="ToDo を追加"
             onAdd={(name, startDate, endDate) => onAddTodo(task.id, name, startDate, endDate)}

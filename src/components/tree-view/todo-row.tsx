@@ -18,17 +18,17 @@ export function TodoRow({ todo, today, projectStart, projectEnd }: TodoRowProps)
   const progress = buildTodoProgressData(todo, today)
 
   return (
-    <div className="ml-12 flex flex-col gap-1 rounded-md py-0.5">
-      {/* 2カラムGrid: 左=ラベル+ピル、右=ガントバー */}
+    <div className="flex flex-col gap-1 rounded-md py-0.5">
+      {/* 5カラムGrid (milestone/task と同一テンプレート): name / progress / status / days / bar */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(280px, auto) 1fr',
+          gridTemplateColumns: '240px 88px 60px 56px 1fr',
           alignItems: 'center',
         }}
       >
-        {/* 左カラム: チェックマーク + ToDo名 + ピル群 */}
-        <div className="flex items-center gap-2">
+        {/* 1. 名前カラム: checkmark + ToDo 名 (pl-[60px] で ToDo 階層インデント) */}
+        <div className="flex min-w-0 items-center gap-2 pr-3 pl-[60px]">
           {/* completed チェックマーク (StatusPill がセマンティクスを担うため aria-hidden) */}
           <span className="w-4 shrink-0 text-sm text-green-600" aria-hidden="true">
             {todo.completed ? '✓' : ''}
@@ -36,25 +36,40 @@ export function TodoRow({ todo, today, projectStart, projectEnd }: TodoRowProps)
 
           {/* ToDo 名 (読み取り専用) */}
           <span className="min-w-0 flex-1 truncate text-sm text-gray-700">{todo.name}</span>
-
-          {/* 進捗情報 */}
-          <div className="flex shrink-0 items-center gap-2">
-            <ProgressPill actualPct={progress.actualPct} scheduledPct={progress.scheduledPct} />
-            <StatusPill status={progress.status} />
-            <DaysPill days={progress.daysDeviation} />
-          </div>
         </div>
 
-        {/* 右カラム: ガントバー */}
-        <div className="relative pr-2" style={{ height: '20px' }}>
+        {/* 2. 進捗 % */}
+        <div className="flex items-center justify-start px-1">
+          <ProgressPill actualPct={progress.actualPct} scheduledPct={progress.scheduledPct} />
+        </div>
+
+        {/* 3. ステータス */}
+        <div className="flex items-center justify-start px-1">
+          <StatusPill renderStatus={progress.renderStatus} />
+        </div>
+
+        {/* 4. 遅延日数 */}
+        <div className="flex items-center justify-start px-1">
+          <DaysPill
+            today={today}
+            rowEnd={progress.endDate}
+            actualPct={progress.actualPct}
+            scheduledPct={progress.scheduledPct}
+            durationDays={progress.durationDays}
+          />
+        </div>
+
+        {/* 5. ガントバー (共有タイムライン) */}
+        <div className="relative" style={{ height: '20px' }}>
           <GanttBar
             projectStart={projectStart}
             projectEnd={projectEnd}
             rowStart={todo.startDate}
             rowEnd={todo.endDate}
+            today={today}
             actualPct={progress.actualPct}
             scheduledPct={progress.scheduledPct}
-            status={progress.status}
+            renderStatus={progress.renderStatus}
           />
         </div>
       </div>

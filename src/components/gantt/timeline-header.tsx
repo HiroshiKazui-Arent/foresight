@@ -12,8 +12,8 @@ import { monthBoundaries, xForDate } from './timeline-utils'
  * 月・日はゼロパディングなし (例: 2025-03-05 → "今日 3/5")。
  */
 export function formatTodayLabel(today: Date): string {
-  const month = today.getMonth() + 1
-  const day = today.getDate()
+  const month = today.getUTCMonth() + 1
+  const day = today.getUTCDate()
   return `今日 ${month}/${day}`
 }
 
@@ -46,7 +46,7 @@ export function TimelineHeader({ projectStart, projectEnd, today }: TimelineHead
       {/* 今日バッジ: 今日がプロジェクト期間内のみ表示 */}
       {todayInRange && (
         <span
-          className="absolute top-0 text-xs font-semibold text-red-500"
+          className="absolute top-0 -translate-x-1/2 text-xs font-semibold text-red-500"
           style={{ left: `${todayX}%` }}
           aria-label="今日"
         >

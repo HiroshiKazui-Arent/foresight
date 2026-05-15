@@ -13,8 +13,9 @@
  */
 export function xForDate(d: Date, projectStart: Date, projectEnd: Date): number {
   const totalMs = projectEnd.getTime() - projectStart.getTime()
-  if (totalMs === 0) return 0
+  if (!Number.isFinite(totalMs) || totalMs === 0) return 0
   const elapsedMs = d.getTime() - projectStart.getTime()
+  if (!Number.isFinite(elapsedMs)) return 0
   const raw = (elapsedMs / totalMs) * 100
   return Math.max(0, Math.min(100, raw))
 }

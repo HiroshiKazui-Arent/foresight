@@ -37,7 +37,15 @@ export async function createTodo(
     const count = await tx.todo.count({ where: { taskId } })
 
     const created = await tx.todo.create({
-      data: { taskId, name: name.trim(), startDate, endDate, weight: 0, order: count },
+      data: {
+        taskId,
+        name: name.trim(),
+        startDate,
+        endDate,
+        weight: 0,
+        order: count,
+        started: false,
+      },
     })
 
     const allTodos = await tx.todo.findMany({
@@ -76,9 +84,14 @@ export async function updateTodo(
       validateDates(data.startDate ?? existing.startDate, data.endDate ?? existing.endDate)
     }
 
+    // M-2: 許可フィールドのみ更新 (mass assignment 防止)
     return tx.todo.update({
       where: { id },
-      data: { ...data, name: data.name?.trim() },
+      data: {
+        ...(data.name !== undefined ? { name: data.name.trim() } : {}),
+        ...(data.startDate !== undefined ? { startDate: data.startDate } : {}),
+        ...(data.endDate !== undefined ? { endDate: data.endDate } : {}),
+      },
     })
   })
 

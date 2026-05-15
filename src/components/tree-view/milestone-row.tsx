@@ -64,16 +64,18 @@ export function MilestoneRow({
       style={style}
       className="group mb-2 rounded-md border border-gray-200 bg-white shadow-sm"
     >
-      {/* 2カラムGrid: 左=ラベル+ピル、右=ガントバー */}
+      {/* 5カラムGrid: name / progress / status / days / bar
+          全行で同一テンプレートを使い、各列固定幅 + バーは 1fr。
+          ピル群は名前のすぐ右に並び、視線移動を最小化する。 */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(280px, auto) 1fr',
+          gridTemplateColumns: '240px 88px 60px 56px 1fr',
           alignItems: 'center',
         }}
       >
-        {/* 左カラム: ヘッダー */}
-        <div className="flex items-center gap-2 px-3 py-2">
+        {/* 1. 名前カラム: drag + chevron + name + link */}
+        <div className="flex min-w-0 items-center gap-2 px-3 py-2">
           {/* ドラッグハンドル (view モードのみ) */}
           {mode !== 'input' && (
             <button
@@ -103,7 +105,7 @@ export function MilestoneRow({
             <InlineEdit
               value={milestone.name}
               onSave={(newName) => onUpdateMilestone(milestone.id, newName)}
-              className="font-semibold"
+              className="truncate font-semibold"
             />
             {mode !== 'input' && (
               <Link
@@ -116,32 +118,47 @@ export function MilestoneRow({
               </Link>
             )}
           </div>
-
-          {/* 進捗情報 */}
-          <div className="flex shrink-0 items-center gap-2">
-            <ProgressPill actualPct={progress.actualPct} scheduledPct={progress.scheduledPct} />
-            <StatusPill status={progress.status} />
-            <DaysPill days={progress.daysDeviation} />
-          </div>
         </div>
 
-        {/* 右カラム: ガントバー */}
-        <div className="relative pr-4" style={{ height: '24px' }}>
+        {/* 2. 進捗 % */}
+        <div className="flex items-center justify-start px-1">
+          <ProgressPill actualPct={progress.actualPct} scheduledPct={progress.scheduledPct} />
+        </div>
+
+        {/* 3. ステータス */}
+        <div className="flex items-center justify-start px-1">
+          <StatusPill renderStatus={progress.renderStatus} />
+        </div>
+
+        {/* 4. 遅延日数 */}
+        <div className="flex items-center justify-start px-1">
+          <DaysPill
+            today={today}
+            rowEnd={progress.endDate}
+            actualPct={progress.actualPct}
+            scheduledPct={progress.scheduledPct}
+            durationDays={progress.durationDays}
+          />
+        </div>
+
+        {/* 5. ガントバー (共有タイムライン) */}
+        <div className="relative" style={{ height: '24px' }}>
           <GanttBar
             projectStart={projectStart}
             projectEnd={projectEnd}
             rowStart={milestone.startDate}
             rowEnd={milestone.endDate}
+            today={today}
             actualPct={progress.actualPct}
             scheduledPct={progress.scheduledPct}
-            status={progress.status}
+            renderStatus={progress.renderStatus}
           />
         </div>
       </div>
 
-      {/* タスク一覧（折りたたみ可能） */}
+      {/* タスク一覧（折りたたみ可能）— px-2 を廃止し全行 grid 列を統一 */}
       {expanded && (
-        <div className="px-2 pb-2">
+        <div className="pb-2">
           <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
             {milestone.tasks.map((task) => (
               <TaskRow
@@ -158,9 +175,9 @@ export function MilestoneRow({
             ))}
           </SortableContext>
 
-          {/* タスク追加ボタン (view モードのみ): タスク行 ml-6 より一段深い ml-10 */}
+          {/* タスク追加ボタン (view モードのみ): タスク行ラベルインデント (pl-9) + タスク子要素相当 */}
           {mode !== 'input' && (
-            <div className="ml-10">
+            <div className="pl-12">
               <AddRowButton
                 label="タスクを追加"
                 onAdd={(name, startDate, endDate) =>
