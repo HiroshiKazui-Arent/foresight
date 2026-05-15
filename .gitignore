@@ -44,3 +44,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# work-in-progress screenshots (browser verification etc., not for repo)
+shot_*.png
+ss_*.png
+ss2_*.png
+ss3_*.png
