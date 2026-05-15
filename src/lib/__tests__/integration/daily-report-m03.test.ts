@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Prisma } from '@prisma/client'
 import { prisma } from './setup'
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
@@ -94,7 +93,7 @@ describe('TC-M03-DB-001: Todo_completed_implies_started CHECK 制約', () => {
           order: 0,
         },
       }),
-    ).rejects.toThrow(Prisma.PrismaClientKnownRequestError)
+    ).rejects.toThrow(/Todo_completed_implies_started/)
   })
 
   it('Prisma 直書き: completed=true, started=true は正常に作成できる', async () => {
@@ -133,7 +132,7 @@ describe('TC-M03-DB-001: Todo_completed_implies_started CHECK 制約', () => {
         where: { id: todo.id },
         data: { completed: true, started: false },
       }),
-    ).rejects.toThrow(Prisma.PrismaClientKnownRequestError)
+    ).rejects.toThrow(/Todo_completed_implies_started/)
   })
 })
 
