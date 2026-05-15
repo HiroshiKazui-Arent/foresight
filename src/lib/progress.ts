@@ -1,151 +1,51 @@
-import type { ProgressStatus, RenderStatus } from '@/types/progress'
+import { daysBetween } from '@/lib/date-utils'
 
+/** 0..100 の範囲にクランプする内部ユーティリティ */
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max)
+}
+
+/**
+ * 予定進捗率を計算する (純関数)。
+ * 計算式: (today - startDate) / (endDate - startDate) × 100
+ * - today < startDate → 0%
+ * - today > endDate   → 100%
+ * - startDate === endDate (同日タスク) は total <= 0 のフォールバックを使用
+ */
 export function calcScheduledPct(startDate: Date, endDate: Date, today: Date): number {
   const total = endDate.getTime() - startDate.getTime()
-  if (total <= 0) return 100
+  if (total <= 0) return today >= endDate ? 100 : 0 // 不整合データのフォールバック
   const elapsed = today.getTime() - startDate.getTime()
-  return Math.min(100, Math.max(0, (elapsed / total) * 100))
+  return clamp((elapsed / total) * 100, 0, 100)
 }
-
-/** @deprecated Step 6 で calcRealDaysDeviation に統一後削除 */
-export function calcDaysDeviation(
-  actualPct: number,
-  scheduledPct: number,
-  durationDays: number,
-): number {
-  if (durationDays === 0) return 0
-  return ((actualPct - scheduledPct) / 100) * durationDays
-}
-
-/** @deprecated Step 6 で calcAggregateRenderStatus に統一後削除 */
-export function calcStatus(actualPct: number, scheduledPct: number): ProgressStatus {
-  if (actualPct === 100) return 'completed'
-  if (actualPct === 0 && scheduledPct === 0) return 'scheduled'
-  const gap = actualPct - scheduledPct
-  if (gap >= 0) return 'on-track'
-  if (gap > -20) return 'delayed'
-  return 'warning'
-}
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000
-export const TODO_WARNING_THRESHOLD_DAYS = 3
-// calcTaskActualPct / calcMilestoneActualPct が浮動小数を返すため、
-// 「実質 0%」の判定に厳密な === 0 ではなくこの閾値を使用する
-const NEAR_ZERO_PCT_THRESHOLD = 0.001
 
 /**
- * ToDo は actualPct を持たないため、completed + 日付で 4 段階に判定する(M-01)。
- * 警告状態は ToDo レベルでは持たない。期日まで TODO_WARNING_THRESHOLD_DAYS 未満は 'delayed' 扱い。
+ * Task の実績進捗率を計算する (純関数)。
+ * 計算式: 完了 ToDo 数 / 全 ToDo 数 × 100
+ * - 空配列は 0%
+ * - actualEndDate != null で完了扱い
  */
-export function calcTodoStatus(
-  completed: boolean,
-  startDate: Date,
-  endDate: Date,
-  today: Date,
-): ProgressStatus {
-  if (completed) return 'completed'
-  const daysToDeadline = (endDate.getTime() - today.getTime()) / MS_PER_DAY
-  if (daysToDeadline < TODO_WARNING_THRESHOLD_DAYS) return 'delayed'
-  if (today.getTime() < startDate.getTime()) return 'scheduled'
-  return 'on-track'
-}
-
-function calcWeightedAvgByDuration(
-  items: { actualPct: number; startDate: Date; endDate: Date }[],
-): number {
-  if (items.length === 0) return 0
-  const totalDuration = items.reduce(
-    (sum, item) => sum + (item.endDate.getTime() - item.startDate.getTime()),
-    0,
-  )
-  if (totalDuration === 0) return 0
-  const weighted = items.reduce(
-    (sum, item) => sum + item.actualPct * (item.endDate.getTime() - item.startDate.getTime()),
-    0,
-  )
-  return weighted / totalDuration
-}
-
-export function calcTaskActualPct(todos: { completed: boolean; weight: number }[]): number {
+export function calcTaskActualPct(todos: { actualEndDate: Date | null }[]): number {
   if (todos.length === 0) return 0
-  const totalWeight = todos.reduce((sum, t) => sum + t.weight, 0)
-  if (totalWeight === 0) return 0
-  const completedWeight = todos.reduce((sum, t) => sum + (t.completed ? t.weight : 0), 0)
-  return (completedWeight / totalWeight) * 100
-}
-
-export function calcMilestoneActualPct(
-  tasks: { actualPct: number; startDate: Date; endDate: Date }[],
-): number {
-  return calcWeightedAvgByDuration(tasks)
-}
-
-export function calcProjectActualPct(
-  milestones: { actualPct: number; startDate: Date; endDate: Date }[],
-): number {
-  return calcWeightedAvgByDuration(milestones)
+  const completed = todos.filter((t) => t.actualEndDate != null).length
+  return (completed / todos.length) * 100
 }
 
 /**
- * ToDo 1件の描画ステータスを 5状態で返す。
- * 判定順序（上から優先）:
- * 1. completed=true → 'completed'
- * 2. today < startDate → 'scheduled'
- * 3. !started (かつ today >= startDate) → 'not-started-overdue'
- * 4. today > endDate → 'overdue-past-deadline'
- * 5. それ以外 (started=true, !completed, today in [startDate, endDate]) → 'delayed-pre-deadline'
+ * Milestone/Project の実績進捗率を期間日数の加重平均で計算する (純関数)。
+ * 重み = daysBetween(startDate, endDate) (最低 1 日)。
+ * - 空配列は 0%
+ * - 子が同日タスクのみの場合も重み 1 で均等平均になる
  */
-export function calcRenderStatus(
-  todo: { started: boolean; completed: boolean; startDate: Date; endDate: Date },
-  today: Date,
-): RenderStatus {
-  if (todo.completed) return 'completed'
-  if (today < todo.startDate) return 'scheduled'
-  if (!todo.started) return 'not-started-overdue'
-  if (today > todo.endDate) return 'overdue-past-deadline'
-  return 'delayed-pre-deadline'
-}
-
-/**
- * Task/Milestone/Project の集約描画ステータスを 6状態で返す。
- * 判定順序（上から優先）:
- * 1. today < startDate → 'scheduled'
- * 2. actualPct=0, !anyChildStarted, today >= startDate → 'not-started-overdue'
- * 3. actualPct=100 → 'completed' (ahead-of-schedule より優先)
- * 4. today > endDate → 'overdue-past-deadline'
- * 5. actualPct >= scheduledPct → 'ahead-of-schedule' (前倒し進行中: 緑実線+灰残り)
- * 6. それ以外 → 'delayed-pre-deadline'
- */
-export function calcAggregateRenderStatus(
-  parent: { startDate: Date; endDate: Date; actualPct: number },
-  today: Date,
-  anyChildStarted: boolean,
-): RenderStatus {
-  if (today < parent.startDate) return 'scheduled'
-  if (parent.actualPct < NEAR_ZERO_PCT_THRESHOLD && !anyChildStarted) return 'not-started-overdue'
-  if (parent.actualPct === 100) return 'completed'
-  if (today > parent.endDate) return 'overdue-past-deadline'
-  const scheduledPct = calcScheduledPct(parent.startDate, parent.endDate, today)
-  if (parent.actualPct >= scheduledPct) return 'ahead-of-schedule'
-  return 'delayed-pre-deadline'
-}
-
-/**
- * 実日数ベースの偏差を返す。
- * - today > rowEnd のとき: (rowEnd - today) の実日数（負の値）
- * - それ以外: calcDaysDeviation と同じ計算
- * クランプなし。
- */
-export function calcRealDaysDeviation(
-  today: Date,
-  rowEnd: Date,
-  actualPct: number,
-  scheduledPct: number,
-  durationDays: number,
+export function calcWeightedActualPct(
+  children: {
+    actualPct: number
+    startDate: Date
+    endDate: Date
+  }[],
 ): number {
-  if (today > rowEnd) {
-    return (rowEnd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-  }
-  if (durationDays === 0) return 0
-  return ((actualPct - scheduledPct) / 100) * durationDays
+  if (children.length === 0) return 0
+  const weights = children.map((c) => daysBetween(c.startDate, c.endDate))
+  const totalWeight = weights.reduce((a, b) => a + b, 0)
+  return children.reduce((acc, c, i) => acc + (c.actualPct * weights[i]) / totalWeight, 0)
 }
