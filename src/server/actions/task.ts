@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { requireProjectMember } from '@/lib/authz'
-import { redistributeWeights } from '@/lib/weight'
 import type { Task } from '@prisma/client'
 
 function validateName(name: string) {
@@ -42,13 +41,10 @@ export async function createTask(
 
     const templates = await tx.todoTemplate.findMany({ orderBy: { order: 'asc' } })
     if (templates.length > 0) {
-      const weights = redistributeWeights(templates.length)
       await tx.todo.createMany({
         data: templates.map((tpl, i) => ({
           taskId: created.id,
           name: tpl.name,
-          weight: weights[i],
-          completed: false,
           startDate: created.startDate,
           endDate: created.endDate,
           order: i,

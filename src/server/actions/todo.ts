@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { requireProjectMember } from '@/lib/authz'
-import { redistributeWeights } from '@/lib/weight'
 import type { Todo } from '@prisma/client'
 
 function validateName(name: string) {
@@ -36,30 +35,15 @@ export async function createTodo(
 
     const count = await tx.todo.count({ where: { taskId } })
 
-    const created = await tx.todo.create({
+    return tx.todo.create({
       data: {
         taskId,
         name: name.trim(),
         startDate,
         endDate,
-        weight: 0,
         order: count,
-        started: false,
       },
     })
-
-    const allTodos = await tx.todo.findMany({
-      where: { taskId },
-      orderBy: { order: 'asc' },
-    })
-
-    const weights = redistributeWeights(allTodos.length)
-    await Promise.all(
-      allTodos.map((t, i) => tx.todo.update({ where: { id: t.id }, data: { weight: weights[i] } })),
-    )
-
-    const newIndex = allTodos.findIndex((t) => t.id === created.id)
-    return { ...created, weight: weights[newIndex] }
   })
 
   revalidatePath('/projects/' + projectId, 'layout')
@@ -109,20 +93,6 @@ export async function deleteTodo(id: string, projectId: string): Promise<void> {
     if (!target) notFound()
 
     await tx.todo.delete({ where: { id } })
-
-    const remaining = await tx.todo.findMany({
-      where: { taskId: target.taskId },
-      orderBy: { order: 'asc' },
-    })
-
-    if (remaining.length === 0) return
-
-    const weights = redistributeWeights(remaining.length)
-    await Promise.all(
-      remaining.map((t, i) =>
-        tx.todo.update({ where: { id: t.id }, data: { weight: weights[i] } }),
-      ),
-    )
   })
 
   revalidatePath('/projects/' + projectId, 'layout')

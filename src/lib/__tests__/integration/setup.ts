@@ -7,7 +7,7 @@ export const prisma = new PrismaClient({
 
 export async function truncateAll() {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE "DailyReport","Todo","Task","Milestone","ProjectMember","Project",' +
+    'TRUNCATE "Todo","Task","Milestone","ProjectMember","Project",' +
       '"Invitation","Session","Account","User","TodoTemplate","VerificationToken" ' +
       'RESTART IDENTITY CASCADE',
   )

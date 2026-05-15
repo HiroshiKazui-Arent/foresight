@@ -14,9 +14,6 @@ import type { Milestone, Project, Task, Todo } from '@prisma/client'
 import { reorderMilestones, updateMilestone, createMilestone } from '@/server/actions/milestone'
 import { reorderTasks, updateTask, createTask } from '@/server/actions/task'
 import { createTodo } from '@/server/actions/todo'
-import { TodayLine } from '@/components/gantt/today-line'
-import { TimelineHeader } from '@/components/gantt/timeline-header'
-import { xForDate } from '@/components/gantt/timeline-utils'
 import { calcProjectDateRange } from './project-date-range'
 import { MilestoneRow } from './milestone-row'
 import { AddRowButton } from './add-row-button'
@@ -45,7 +42,6 @@ export function TreeView({ project, today, mode = 'view' }: TreeViewProps) {
     project.startDate,
     project.endDate,
   )
-  const todayX = xForDate(today, projectStart, projectEnd)
 
   const handleDragEnd = useCallback(
     async (event: DragEndEvent) => {
@@ -158,16 +154,8 @@ export function TreeView({ project, today, mode = 'view' }: TreeViewProps) {
 
   return (
     <div className="relative flex flex-col gap-2">
-      {/* タイムラインヘッダー: 5カラム grid (name / progress / status / days / bar)。
-          ヘッダーに表示するのは 5 番目のバー領域 (月ラベル + 今日バッジ) のみ。 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '240px 88px 60px 56px 1fr' }}>
-        <div />
-        <div />
-        <div />
-        <div />
-        <div className="relative overflow-hidden">
-          <TimelineHeader projectStart={projectStart} projectEnd={projectEnd} today={today} />
-        </div>
+      <div className="rounded bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        v4.0 リセット中: ガント描画は S5–S8 で再構築されます
       </div>
 
       <DndContext
@@ -181,7 +169,6 @@ export function TreeView({ project, today, mode = 'view' }: TreeViewProps) {
             <MilestoneRow
               key={milestone.id}
               milestone={milestone}
-              projectId={project.id}
               today={today}
               projectStart={projectStart}
               projectEnd={projectEnd}
@@ -197,22 +184,6 @@ export function TreeView({ project, today, mode = 'view' }: TreeViewProps) {
 
       <div className="pl-3">
         <AddRowButton label="マイルストーンを追加" onAdd={handleAddMilestone} />
-      </div>
-
-      {/* 今日線オーバーレイ: position:absolute でコンテナ全体を貫き、
-          5 番目のバー領域 (1fr) に縦線を描く。他カラムは空セルで占有のみ。 */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{ display: 'grid', gridTemplateColumns: '240px 88px 60px 56px 1fr' }}
-        aria-hidden="true"
-      >
-        <div />
-        <div />
-        <div />
-        <div />
-        <div className="relative">
-          <TodayLine todayX={todayX} />
-        </div>
       </div>
     </div>
   )

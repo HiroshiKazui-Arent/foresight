@@ -45,7 +45,7 @@ import { createTodo, deleteTodo, updateTodo } from '@/server/actions/todo'
 import { revalidatePath } from 'next/cache'
 import { requireProjectMember } from '@/lib/authz'
 
-describe('createTodo', () => {
+describe('createTodo (v4.0)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockPrisma.$transaction.mockImplementation(
@@ -53,7 +53,7 @@ describe('createTodo', () => {
     )
   })
 
-  it('正常系: createTodo 後、同 Task 配下の全 ToDo の weight 合計が 100 になる', async () => {
+  it('正常系: name + startDate + endDate のみで Todo を作成する (weight 概念なし)', async () => {
     const now = new Date()
     const end = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
 
@@ -63,32 +63,28 @@ describe('createTodo', () => {
       id: 'todo-3',
       taskId: 'task-1',
       name: 'New Todo',
-      weight: 0,
       order: 2,
       startDate: now,
       endDate: end,
+      actualStartDate: null,
+      actualEndDate: null,
     })
-
-    mockPrisma.todo.findMany.mockResolvedValue([
-      { id: 'todo-1', taskId: 'task-1', weight: 50, order: 0 },
-      { id: 'todo-2', taskId: 'task-1', weight: 50, order: 1 },
-      { id: 'todo-3', taskId: 'task-1', weight: 0, order: 2 },
-    ])
-
-    mockPrisma.todo.update.mockResolvedValue({})
 
     await createTodo('task-1', 'proj-1', 'New Todo', now, end)
 
     expect(requireProjectMember).toHaveBeenCalledWith('proj-1')
     expect(mockPrisma.todo.create).toHaveBeenCalledOnce()
-    expect(mockPrisma.todo.update).toHaveBeenCalledTimes(3)
-
-    const updateCalls = vi.mocked(mockPrisma.todo.update).mock.calls
-    const totalWeight = updateCalls.reduce((sum, call) => {
-      const data = (call[0] as { data: { weight: number } }).data
-      return sum + data.weight
-    }, 0)
-    expect(totalWeight).toBe(100)
+    const createCall = vi.mocked(mockPrisma.todo.create).mock.calls[0][0] as {
+      data: Record<string, unknown>
+    }
+    // v4.0: weight / started / completed / actualStart* / actualEnd* は createTodo で受け付けない
+    expect(createCall.data).not.toHaveProperty('weight')
+    expect(createCall.data).not.toHaveProperty('started')
+    expect(createCall.data).not.toHaveProperty('completed')
+    expect(createCall.data).not.toHaveProperty('actualStartDate')
+    expect(createCall.data).not.toHaveProperty('actualEndDate')
+    expect(createCall.data.name).toBe('New Todo')
+    expect(createCall.data.order).toBe(2)
 
     expect(revalidatePath).toHaveBeenCalled()
   })
@@ -118,41 +114,9 @@ describe('createTodo', () => {
     )
     expect(mockPrisma.todo.create).not.toHaveBeenCalled()
   })
-
-  it('ToDo が 1 件の場合は weight が 100 になる', async () => {
-    const now = new Date()
-    const end = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-
-    mockPrisma.task.findFirst.mockResolvedValue({ id: 'task-1', milestoneId: 'ms-1' })
-    mockPrisma.todo.count.mockResolvedValue(0)
-    mockPrisma.todo.create.mockResolvedValue({
-      id: 'todo-1',
-      taskId: 'task-1',
-      name: 'First Todo',
-      weight: 0,
-      order: 0,
-      startDate: now,
-      endDate: end,
-    })
-
-    mockPrisma.todo.findMany.mockResolvedValue([
-      { id: 'todo-1', taskId: 'task-1', weight: 0, order: 0 },
-    ])
-
-    mockPrisma.todo.update.mockResolvedValue({})
-
-    await createTodo('task-1', 'proj-1', 'First Todo', now, end)
-
-    const updateCalls = vi.mocked(mockPrisma.todo.update).mock.calls
-    const totalWeight = updateCalls.reduce((sum, call) => {
-      const data = (call[0] as { data: { weight: number } }).data
-      return sum + data.weight
-    }, 0)
-    expect(totalWeight).toBe(100)
-  })
 })
 
-describe('deleteTodo', () => {
+describe('deleteTodo (v4.0)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockPrisma.$transaction.mockImplementation(
@@ -160,20 +124,13 @@ describe('deleteTodo', () => {
     )
   })
 
-  it('正常系: deleteTodo 後、残 ToDo の weight 合計が 100 になる', async () => {
+  it('正常系: deleteTodo は weight 再配分を行わない', async () => {
     mockPrisma.todo.findFirst.mockResolvedValue({
       id: 'todo-1',
       taskId: 'task-1',
     })
 
     mockPrisma.todo.delete.mockResolvedValue({ id: 'todo-1' })
-
-    mockPrisma.todo.findMany.mockResolvedValue([
-      { id: 'todo-2', taskId: 'task-1', weight: 50, order: 0 },
-      { id: 'todo-3', taskId: 'task-1', weight: 50, order: 1 },
-    ])
-
-    mockPrisma.todo.update.mockResolvedValue({})
 
     await deleteTodo('todo-1', 'proj-1')
 
@@ -181,31 +138,7 @@ describe('deleteTodo', () => {
     expect(mockPrisma.todo.delete).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: 'todo-1' } }),
     )
-
-    expect(mockPrisma.todo.update).toHaveBeenCalledTimes(2)
-
-    const updateCalls = vi.mocked(mockPrisma.todo.update).mock.calls
-    const totalWeight = updateCalls.reduce((sum, call) => {
-      const data = (call[0] as { data: { weight: number } }).data
-      return sum + data.weight
-    }, 0)
-    expect(totalWeight).toBe(100)
-
-    expect(revalidatePath).toHaveBeenCalled()
-  })
-
-  it('最後の 1 件を削除した後は weight 再計算が不要（update 呼び出しなし）', async () => {
-    mockPrisma.todo.findFirst.mockResolvedValue({
-      id: 'todo-1',
-      taskId: 'task-1',
-    })
-
-    mockPrisma.todo.delete.mockResolvedValue({ id: 'todo-1' })
-    mockPrisma.todo.findMany.mockResolvedValue([])
-    mockPrisma.todo.update.mockResolvedValue({})
-
-    await deleteTodo('todo-1', 'proj-1')
-
+    // v4.0: 削除後の weight 再配分は不要
     expect(mockPrisma.todo.update).not.toHaveBeenCalled()
     expect(revalidatePath).toHaveBeenCalled()
   })
@@ -218,14 +151,14 @@ describe('deleteTodo', () => {
   })
 
   it('別プロジェクトの Todo は削除できない (IDOR 防止)', async () => {
-    mockPrisma.todo.findFirst.mockResolvedValue(null) // 所有権チェック失敗
+    mockPrisma.todo.findFirst.mockResolvedValue(null)
 
     await expect(deleteTodo('todo-other-project', 'proj-1')).rejects.toThrow('NOT_FOUND')
     expect(mockPrisma.todo.delete).not.toHaveBeenCalled()
   })
 })
 
-describe('updateTodo', () => {
+describe('updateTodo (v4.0)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockPrisma.$transaction.mockImplementation(
@@ -233,7 +166,7 @@ describe('updateTodo', () => {
     )
   })
 
-  it('正常系: 名前を更新する（weight は変更しない）', async () => {
+  it('正常系: 名前を更新する (weight 概念なし)', async () => {
     mockPrisma.todo.findFirst.mockResolvedValue({ id: 'todo-1', taskId: 'task-1' })
     mockPrisma.todo.update.mockResolvedValue({ id: 'todo-1', name: 'Updated' })
 
@@ -250,6 +183,8 @@ describe('updateTodo', () => {
       data: Record<string, unknown>
     }
     expect(callData.data).not.toHaveProperty('weight')
+    expect(callData.data).not.toHaveProperty('actualStartDate')
+    expect(callData.data).not.toHaveProperty('actualEndDate')
     expect(revalidatePath).toHaveBeenCalled()
   })
 

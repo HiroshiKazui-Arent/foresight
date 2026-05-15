@@ -2,12 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ProgressPill } from '@/components/progress-pill'
-import { StatusPill } from '@/components/status-pill'
-import { DaysPill } from '@/components/days-pill'
-import { GanttBar } from '@/components/gantt/gantt-bar'
-import { formatTodayLabel } from '@/components/gantt/timeline-header'
-import { xForDate } from '@/components/gantt/timeline-utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -19,19 +13,16 @@ import {
   DialogClose,
 } from '@/components/ui/dialog'
 import { createProject } from '@/server/actions/project'
-import type { ProgressBarData } from '@/types/progress'
 
 interface ProjectListItem {
   id: string
   name: string
   startDate: Date
   endDate: Date
-  progressBar: ProgressBarData
 }
 
 interface ProjectListProps {
   projects: ProjectListItem[]
-  today: Date
 }
 
 // UTC 年月日を ja-JP ロケール相当 (YYYY/M/D) に変換。
@@ -41,7 +32,7 @@ function fmtDate(d: Date): string {
   return `${d.getUTCFullYear()}/${d.getUTCMonth() + 1}/${d.getUTCDate()}`
 }
 
-export function ProjectList({ projects, today }: ProjectListProps) {
+export function ProjectList({ projects }: ProjectListProps) {
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
   const [open, setOpen] = useState(false)
@@ -79,8 +70,6 @@ export function ProjectList({ projects, today }: ProjectListProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">プロジェクト一覧</h1>
-        {/* Radix UI Dialog は React 19 SSR と @radix-ui/react-id の useLayoutEffect が競合するため
-            mounted 後のみレンダリングして SSR から除外する */}
         {mounted ? (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -146,65 +135,20 @@ export function ProjectList({ projects, today }: ProjectListProps) {
         </div>
       ) : (
         <div className="space-y-3">
-          {projects.map((project) => {
-            const todayX = xForDate(today, project.startDate, project.endDate)
-            const showToday = today >= project.startDate && today <= project.endDate
-            return (
-              <button
-                key={project.id}
-                onClick={() => router.push('/projects/' + project.id)}
-                className="w-full rounded-lg border border-gray-200 bg-white p-4 text-left shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
-              >
-                <div className="relative">
-                  {showToday && (
-                    <>
-                      {/* 今日線: カードコンテンツ全高を貫く */}
-                      <div
-                        className="pointer-events-none absolute inset-y-0 w-0.5 bg-red-500"
-                        style={{ left: `${todayX}%` }}
-                        aria-label="今日の位置"
-                      />
-                      {/* 日付バッジ: 線の上端に配置 */}
-                      <span
-                        className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded bg-red-500 px-1.5 py-0.5 text-xs leading-none font-medium whitespace-nowrap text-white"
-                        style={{ left: `${todayX}%` }}
-                      >
-                        {formatTodayLabel(today)}
-                      </span>
-                    </>
-                  )}
-                  <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-gray-900">{project.name}</h2>
-                    <div className="flex items-center gap-3">
-                      <StatusPill status={project.progressBar.status} />
-                      <DaysPill days={project.progressBar.daysDeviation} />
-                    </div>
-                  </div>
-                  <div className="relative mb-2 h-4">
-                    <GanttBar
-                      projectStart={project.startDate}
-                      projectEnd={project.endDate}
-                      rowStart={project.startDate}
-                      rowEnd={project.endDate}
-                      today={today}
-                      actualPct={project.progressBar.actualPct}
-                      scheduledPct={project.progressBar.scheduledPct}
-                      status={project.progressBar.status}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <ProgressPill
-                      actualPct={project.progressBar.actualPct}
-                      scheduledPct={project.progressBar.scheduledPct}
-                    />
-                    <span className="text-xs text-gray-400">
-                      {fmtDate(project.startDate)} 〜 {fmtDate(project.endDate)}
-                    </span>
-                  </div>
-                </div>
-              </button>
-            )
-          })}
+          {projects.map((project) => (
+            <button
+              key={project.id}
+              onClick={() => router.push('/projects/' + project.id)}
+              className="w-full rounded-lg border border-gray-200 bg-white p-4 text-left shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">{project.name}</h2>
+                <span className="text-xs text-gray-400">
+                  {fmtDate(project.startDate)} 〜 {fmtDate(project.endDate)}
+                </span>
+              </div>
+            </button>
+          ))}
         </div>
       )}
     </div>
