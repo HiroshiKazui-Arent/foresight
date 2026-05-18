@@ -26,7 +26,6 @@ describe('TC-AUTHZ-004: Server Action ファイルに認証チェックが存在
     'milestone.ts',
     'task.ts',
     'todo.ts',
-    'daily-report.ts',
     'user.ts',
   ]
 

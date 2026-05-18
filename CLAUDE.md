@@ -14,14 +14,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Phase 構成は `docs/spec.md` 7節に詳細あり。
 
-| Phase       | 内容                                              | 状態    |
-| ----------- | ------------------------------------------------- | ------- |
-| **Phase 0** | ローカル開発環境 (Docker / Prisma / Auth.js / CI) | ✅ 完了 |
-| Phase 1     | 認証 + 最低限の閲覧/入力 (A1〜A5, V1, I1)         | 未着手  |
-| Phase 2     | V2 (タイムライン) + V3 (タスク詳細)               | 未着手  |
-| Phase 3     | V4 (予兆検知ダッシュボード)                       | 未着手  |
-| Phase 4     | AWS デプロイ (Terraform + ECS Fargate)            | 未着手  |
-| Phase 5     | Pending (メール送信、通知等)                      | —       |
+| Phase       | 内容                                                                      | 状態           |
+| ----------- | ------------------------------------------------------------------------- | -------------- |
+| **Phase 0** | ローカル開発環境 (Docker / Prisma / Auth.js / CI)                         | ✅ 完了        |
+| **Phase 1** | 認証 + A1〜A5 + G1 ガント表示 + G2 工程管理 + G3 進捗入力 (v4.0 リセット) | ✅ 完了 (v4.0) |
+| Phase 2     | フィルター / サマリー / 細部 UX 強化                                      | 未着手         |
+| Phase 3     | 遅延サマリー強化 / ボトルネック可視化                                     | 未着手         |
+| Phase 4     | AWS デプロイ (Terraform + ECS Fargate)                                    | 未着手         |
+| Phase 5     | Pending (連鎖予測 / 完了予測 / 通知 / メール送信等)                       | —              |
 
 Phase 4 までは AWS を触らない。インフラ作業を機能実装に混ぜないこと。
 

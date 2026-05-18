@@ -1,13 +1,11 @@
 /**
- * TC-TPL-001〜006: TodoTemplate 関連テスト (M-02)
+ * TodoTemplate 関連テスト (v4.0)
  *
- * - Task 作成時の自動展開
- * - 重み均等割りの整合性
- * - 自動展開後の個別削除と重み再分配
+ * v3.x の重み再配分テストは廃止 (Plan S3)。
+ * 残存するのは TodoTemplate からの自動展開ロジック (順序 / 期間継承 / トランザクション)。
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { redistributeWeights } from '@/lib/weight'
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('next/navigation', () => ({
@@ -25,6 +23,8 @@ const { mockPrisma } = vi.hoisted(() => {
     },
     todo: {
       createMany: vi.fn(),
+      createManyAndReturn: vi.fn(),
+      findMany: vi.fn(),
     },
     todoTemplate: {
       findMany: vi.fn(),
@@ -44,7 +44,7 @@ vi.mock('@/lib/authz', () => ({
 
 import { createTask } from '@/server/actions/task'
 
-describe('createTask (M-02: TodoTemplate 自動展開)', () => {
+describe('createTask (v4.0: TodoTemplate 自動展開、重み概念なし)', () => {
   const milestoneId = 'ms-1'
   const projectId = 'proj-1'
   const name = '新しいタスク'
@@ -63,17 +63,18 @@ describe('createTask (M-02: TodoTemplate 自動展開)', () => {
       ...data,
     }))
     mockPrisma.todo.createMany.mockResolvedValue({ count: 0 })
+    // createTask は createManyAndReturn で自動展開された ToDo を 1 ラウンドトリップで返す (v4 G2 対応)
+    mockPrisma.todo.createManyAndReturn.mockResolvedValue([])
+    mockPrisma.todo.findMany.mockResolvedValue([])
   })
 
-  // TC-TPL-002: Task 作成時に 6 件の ToDo が order 順に展開される
-  it('TodoTemplate が 6 件あれば、Task 作成時に 6 件の ToDo を order 順に展開する', async () => {
+  it('TodoTemplate が 5 件あれば、Task 作成時に 5 件の ToDo を order 順に展開する', async () => {
     mockPrisma.todoTemplate.findMany.mockResolvedValue([
       { id: 't1', name: '画面設計', order: 1 },
-      { id: 't2', name: 'データベース設計', order: 2 },
-      { id: 't3', name: 'バックエンド開発', order: 3 },
-      { id: 't4', name: 'フロントエンド開発', order: 4 },
-      { id: 't5', name: 'テストコードの実装', order: 5 },
-      { id: 't6', name: 'テスト・レビュー', order: 6 },
+      { id: 't2', name: 'DB設計', order: 2 },
+      { id: 't3', name: 'BE開発', order: 3 },
+      { id: 't4', name: 'FE開発', order: 4 },
+      { id: 't5', name: 'レビュー', order: 5 },
     ])
 
     await createTask(milestoneId, projectId, name, startDate, endDate)
@@ -81,74 +82,49 @@ describe('createTask (M-02: TodoTemplate 自動展開)', () => {
     expect(mockPrisma.todoTemplate.findMany).toHaveBeenCalledWith({
       orderBy: { order: 'asc' },
     })
-    expect(mockPrisma.todo.createMany).toHaveBeenCalledTimes(1)
+    expect(mockPrisma.todo.createManyAndReturn).toHaveBeenCalledTimes(1)
 
-    const createManyArg = mockPrisma.todo.createMany.mock.calls[0][0]
-    expect(createManyArg.data).toHaveLength(6)
+    const createManyArg = mockPrisma.todo.createManyAndReturn.mock.calls[0][0]
+    expect(createManyArg.data).toHaveLength(5)
     const names = createManyArg.data.map((d: { name: string }) => d.name)
-    expect(names).toEqual([
-      '画面設計',
-      'データベース設計',
-      'バックエンド開発',
-      'フロントエンド開発',
-      'テストコードの実装',
-      'テスト・レビュー',
-    ])
-    // order が 0〜5 であること
+    expect(names).toEqual(['画面設計', 'DB設計', 'BE開発', 'FE開発', 'レビュー'])
     const orders = createManyArg.data.map((d: { order: number }) => d.order)
-    expect(orders).toEqual([0, 1, 2, 3, 4, 5])
+    expect(orders).toEqual([0, 1, 2, 3, 4])
   })
 
-  // TC-TPL-003: 展開後の weight 合計 = 100 (6件のとき [16,16,16,16,16,20])
-  it('展開時の重みは redistributeWeights(6) と一致し、合計 100', async () => {
-    mockPrisma.todoTemplate.findMany.mockResolvedValue(
-      Array.from({ length: 6 }, (_, i) => ({ id: `t${i}`, name: `name-${i}`, order: i + 1 })),
-    )
+  it('展開される ToDo に weight / completed / started 等の v3.x フィールドは含まれない', async () => {
+    mockPrisma.todoTemplate.findMany.mockResolvedValue([{ id: 't1', name: '画面設計', order: 1 }])
 
     await createTask(milestoneId, projectId, name, startDate, endDate)
 
-    const createManyArg = mockPrisma.todo.createMany.mock.calls[0][0]
-    const weights = createManyArg.data.map((d: { weight: number }) => d.weight)
-    expect(weights).toEqual(redistributeWeights(6)) // [16,16,16,16,16,20]
-    expect(weights.reduce((a: number, b: number) => a + b, 0)).toBe(100)
+    const createManyArg = mockPrisma.todo.createManyAndReturn.mock.calls[0][0]
+    const todo = createManyArg.data[0]
+    expect(todo).not.toHaveProperty('weight')
+    expect(todo).not.toHaveProperty('completed')
+    expect(todo).not.toHaveProperty('started')
+    expect(todo).not.toHaveProperty('actualStartDate')
+    expect(todo).not.toHaveProperty('actualEndDate')
   })
 
-  // TC-TPL-004: テンプレ 0 件のとき ToDo は作られない
   it('TodoTemplate が 0 件のとき ToDo は作成されない', async () => {
     mockPrisma.todoTemplate.findMany.mockResolvedValue([])
 
     await createTask(milestoneId, projectId, name, startDate, endDate)
 
-    expect(mockPrisma.todo.createMany).not.toHaveBeenCalled()
+    expect(mockPrisma.todo.createManyAndReturn).not.toHaveBeenCalled()
   })
 
-  // TC-TPL-006: 7 件のテンプレ構成で端数 2 が最後に寄る
-  it('TodoTemplate が 7 件のとき 重みは [14,14,14,14,14,14,16] (端数 2 が最後に寄る)', async () => {
-    mockPrisma.todoTemplate.findMany.mockResolvedValue(
-      Array.from({ length: 7 }, (_, i) => ({ id: `t${i}`, name: `name-${i}`, order: i + 1 })),
-    )
-
-    await createTask(milestoneId, projectId, name, startDate, endDate)
-
-    const createManyArg = mockPrisma.todo.createMany.mock.calls[0][0]
-    const weights = createManyArg.data.map((d: { weight: number }) => d.weight)
-    expect(weights).toEqual([14, 14, 14, 14, 14, 14, 16])
-  })
-
-  // 期間とフラグの初期化検証
-  it('自動展開された ToDo は親 Task の期間と同一で初期化され completed=false', async () => {
+  it('自動展開された ToDo は親 Task の期間と同一で初期化される', async () => {
     mockPrisma.todoTemplate.findMany.mockResolvedValue([{ id: 't1', name: '画面設計', order: 1 }])
 
     await createTask(milestoneId, projectId, name, startDate, endDate)
 
-    const createManyArg = mockPrisma.todo.createMany.mock.calls[0][0]
+    const createManyArg = mockPrisma.todo.createManyAndReturn.mock.calls[0][0]
     const todo = createManyArg.data[0]
     expect(todo.startDate).toEqual(startDate)
     expect(todo.endDate).toEqual(endDate)
-    expect(todo.completed).toBe(false)
   })
 
-  // 単一トランザクション
   it('Task 作成と ToDo 一括生成は $transaction 内で実行される', async () => {
     mockPrisma.todoTemplate.findMany.mockResolvedValue([{ id: 't1', name: '画面設計', order: 1 }])
 
@@ -156,19 +132,84 @@ describe('createTask (M-02: TodoTemplate 自動展開)', () => {
 
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1)
   })
+
+  it('返り値: 自動展開された ToDo を todos プロパティで返す (G2 で local state 即時反映)', async () => {
+    mockPrisma.todoTemplate.findMany.mockResolvedValue([
+      { id: 't1', name: '画面設計', order: 1 },
+      { id: 't2', name: 'テスト', order: 2 },
+    ])
+    // createManyAndReturn は order を保証しないため、わざと逆順で返してソート確認
+    mockPrisma.todo.createManyAndReturn.mockResolvedValue([
+      { id: 'td-2', taskId: 'task-new', name: 'テスト', order: 1 },
+      { id: 'td-1', taskId: 'task-new', name: '画面設計', order: 0 },
+    ])
+
+    const result = await createTask(milestoneId, projectId, name, startDate, endDate)
+
+    expect(result.todos).toHaveLength(2)
+    // order 順にソートされていること
+    expect(result.todos[0].name).toBe('画面設計')
+    expect(result.todos[1].name).toBe('テスト')
+  })
+
+  it('TodoTemplate が 0 件のときは todos: [] を返す', async () => {
+    mockPrisma.todoTemplate.findMany.mockResolvedValue([])
+
+    const result = await createTask(milestoneId, projectId, name, startDate, endDate)
+
+    expect(result.todos).toEqual([])
+    expect(mockPrisma.todo.createManyAndReturn).not.toHaveBeenCalled()
+  })
 })
 
-describe('redistributeWeights — TC-TPL-005 関連: 削除後の再分配整合性', () => {
-  it('5 件への再分配は [20,20,20,20,20]', () => {
-    expect(redistributeWeights(5)).toEqual([20, 20, 20, 20, 20])
+describe('updateTask (v4.0: mass-assignment 防止)', () => {
+  const projectId = 'proj-1'
+
+  beforeEach(() => {
+    vi.clearAllMocks()
   })
-  it('4 件への再分配は [25,25,25,25]', () => {
-    expect(redistributeWeights(4)).toEqual([25, 25, 25, 25])
+
+  it('許可されたフィールド以外 (例: milestoneId / order) は Prisma に渡されない', async () => {
+    const { updateTask } = await import('@/server/actions/task')
+
+    mockPrisma.task.findFirst = vi.fn().mockResolvedValue({
+      id: 'task-1',
+      milestoneId: 'ms-original',
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-02-01'),
+    })
+    const updateMock = vi.fn().mockResolvedValue({ id: 'task-1', name: 'Updated' })
+    ;(mockPrisma as unknown as { task: { update: typeof updateMock } }).task.update = updateMock
+
+    // TypeScript 型の境界を runtime で破る (悪意ある呼び出し or バグ)
+    await updateTask('task-1', projectId, {
+      name: 'Updated',
+      milestoneId: 'ms-hijacked',
+      order: 999,
+    } as unknown as Parameters<typeof updateTask>[2])
+
+    expect(updateMock).toHaveBeenCalledOnce()
+    const callData = updateMock.mock.calls[0][0] as { data: Record<string, unknown> }
+    expect(callData.data).not.toHaveProperty('milestoneId')
+    expect(callData.data).not.toHaveProperty('order')
+    expect(callData.data).toHaveProperty('name', 'Updated')
   })
-  it('再分配後も合計 100 を維持する (n=1..10)', () => {
-    for (let n = 1; n <= 10; n++) {
-      const weights = redistributeWeights(n)
-      expect(weights.reduce((a, b) => a + b, 0)).toBe(100)
-    }
+
+  it('日付バリデーション: 開始日 >= 終了日 は updateTask でも拒否される', async () => {
+    const { updateTask } = await import('@/server/actions/task')
+
+    mockPrisma.task.findFirst = vi.fn().mockResolvedValue({
+      id: 'task-1',
+      milestoneId: 'ms-1',
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-02-01'),
+    })
+
+    await expect(
+      updateTask('task-1', projectId, {
+        startDate: new Date('2026-03-01'),
+        endDate: new Date('2026-01-01'),
+      }),
+    ).rejects.toThrow('開始日は終了日より前にしてください')
   })
 })

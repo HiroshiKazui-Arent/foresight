@@ -19,7 +19,6 @@ model User {
   sessions      Session[]
   memberships   ProjectMember[]
   tasks         Task[]
-  reports       DailyReport[]
   invitations   Invitation[]    @relation("InvitedBy")
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
@@ -140,37 +139,19 @@ model Task {
 }
 
 model Todo {
-  id          String        @id @default(cuid())
-  taskId      String
-  task        Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  name        String
-  weight      Int
-  started     Boolean       @default(false)
-  completed   Boolean       @default(false)
-  startedAt   DateTime?
-  completedAt DateTime?
-  startDate   DateTime
-  endDate     DateTime
-  order       Int
-  reports     DailyReport[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id              String    @id @default(cuid())
+  taskId          String
+  task            Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  name            String
+  startDate       DateTime
+  endDate         DateTime
+  actualStartDate DateTime?
+  actualEndDate   DateTime?
+  order           Int
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([taskId, order])
-}
-
-model DailyReport {
-  id         String   @id @default(cuid())
-  todoId     String
-  todo       Todo     @relation(fields: [todoId], references: [id], onDelete: Cascade)
-  reportedBy String
-  user       User     @relation(fields: [reportedBy], references: [id])
-  date       DateTime
-  completed  Boolean
-  comment    String?
-  createdAt  DateTime @default(now())
-
-  @@index([todoId, date])
 }
 
 model TodoTemplate {

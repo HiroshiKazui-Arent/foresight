@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { prisma } from './setup'
-import { calcTaskActualPct } from '@/lib/progress'
 
 async function createTestUser(suffix: string) {
   return prisma.user.create({
@@ -44,13 +43,11 @@ async function createTestTask(milestoneId: string) {
   })
 }
 
-async function createTestTodo(taskId: string, name = 'Test Todo', completed = false) {
+async function createTestTodo(taskId: string, name = 'Test Todo') {
   return prisma.todo.create({
     data: {
       taskId,
       name,
-      weight: 100,
-      completed,
       startDate: new Date('2026-01-01'),
       endDate: new Date('2026-01-31'),
       order: 0,
@@ -58,7 +55,6 @@ async function createTestTodo(taskId: string, name = 'Test Todo', completed = fa
   })
 }
 
-// TC-DATA-001: Milestone は有効な projectId がないと作成不可
 describe('TC-DATA-001: Milestone FK 制約', () => {
   it('存在しない projectId での Milestone 作成は拒否される', async () => {
     await expect(
@@ -75,7 +71,6 @@ describe('TC-DATA-001: Milestone FK 制約', () => {
   })
 })
 
-// TC-DATA-002: Project 削除で Milestone/Task/Todo がカスケード削除
 describe('TC-DATA-002: Project カスケード削除', () => {
   it('Project 削除で Milestone/Task/Todo が全件削除される', async () => {
     const user = await createTestUser('cascade1')
@@ -92,7 +87,6 @@ describe('TC-DATA-002: Project カスケード削除', () => {
   })
 })
 
-// TC-DATA-003: Milestone 削除で Task が全件削除
 describe('TC-DATA-003: Milestone カスケード削除', () => {
   it('Milestone 削除で配下 Task が全件削除される', async () => {
     const user = await createTestUser('cascade2')
@@ -106,7 +100,6 @@ describe('TC-DATA-003: Milestone カスケード削除', () => {
   })
 })
 
-// TC-DATA-004: Task 削除で Todo が全件削除
 describe('TC-DATA-004: Task カスケード削除', () => {
   it('Task 削除で配下 Todo が全件削除される', async () => {
     const user = await createTestUser('cascade3')
@@ -121,7 +114,6 @@ describe('TC-DATA-004: Task カスケード削除', () => {
   })
 })
 
-// TC-DATA-005: User 削除で ProjectMember がカスケード削除
 describe('TC-DATA-005: User カスケード削除', () => {
   it('User 削除で ProjectMember が削除される', async () => {
     const user = await createTestUser('cascade4')
@@ -141,7 +133,6 @@ describe('TC-DATA-005: User カスケード削除', () => {
   })
 })
 
-// TC-DATA-006: (projectId, userId) の ProjectMember 重複は不可
 describe('TC-DATA-006: ProjectMember 複合ユニーク制約', () => {
   it('同じ (projectId, userId) の ProjectMember を二重作成すると拒否される', async () => {
     const user = await createTestUser('dup1')
@@ -153,68 +144,6 @@ describe('TC-DATA-006: ProjectMember 複合ユニーク制約', () => {
   })
 })
 
-// TC-DATA-010: Task/Milestone/Project に actualPct 相当のフィールドがない
-describe('TC-DATA-010: actualPct はアプリ層で計算される (DB 列として存在しない)', () => {
-  it('Task に actualPct 列が存在せず、todos から計算される', async () => {
-    const user = await createTestUser('data010')
-    const project = await createTestProject(user.id)
-    const milestone = await createTestMilestone(project.id)
-    const task = await createTestTask(milestone.id)
-    await prisma.todo.createMany({
-      data: [
-        {
-          taskId: task.id,
-          name: 'T1',
-          weight: 50,
-          started: true, // M-03 CHECK 制約 (completed=true → started=true)
-          completed: true,
-          startDate: new Date('2026-01-01'),
-          endDate: new Date('2026-01-15'),
-          order: 0,
-        },
-        {
-          taskId: task.id,
-          name: 'T2',
-          weight: 50,
-          completed: false,
-          startDate: new Date('2026-01-15'),
-          endDate: new Date('2026-01-31'),
-          order: 1,
-        },
-      ],
-    })
-
-    const dbTask = await prisma.task.findUnique({ where: { id: task.id } })
-    expect(dbTask).not.toBeNull()
-    // actualPct は DB に保存されない (フィールドが存在しない)
-    expect((dbTask as Record<string, unknown>)['actualPct']).toBeUndefined()
-  })
-})
-
-// TC-DATA-011: Todo.completed 更新後に calcTaskActualPct が正しく計算される
-describe('TC-DATA-011: Todo.completed 更新で Task actualPct が変化する', () => {
-  it('completed を true にすると calcTaskActualPct が 100% になる', async () => {
-    const user = await createTestUser('data011')
-    const project = await createTestProject(user.id)
-    const milestone = await createTestMilestone(project.id)
-    const task = await createTestTask(milestone.id)
-    const todo = await createTestTodo(task.id, 'Single Todo', false)
-
-    const todosBefore = await prisma.todo.findMany({ where: { taskId: task.id } })
-    expect(calcTaskActualPct(todosBefore)).toBe(0)
-
-    // M-03 CHECK 制約 (completed=true → started=true) に従い started も同時に true へ
-    await prisma.todo.update({
-      where: { id: todo.id },
-      data: { started: true, completed: true },
-    })
-
-    const todosAfter = await prisma.todo.findMany({ where: { taskId: task.id } })
-    expect(calcTaskActualPct(todosAfter)).toBe(100)
-  })
-})
-
-// TC-MODEL-001: User.email は一意
 describe('TC-MODEL-001: User.email ユニーク制約', () => {
   it('同じ email の User を二重作成すると拒否される', async () => {
     await prisma.user.create({ data: { email: 'unique@example.com', name: 'User1' } })
@@ -224,7 +153,6 @@ describe('TC-MODEL-001: User.email ユニーク制約', () => {
   })
 })
 
-// TC-MODEL-002: Invitation.token は一意
 describe('TC-MODEL-002: Invitation.token ユニーク制約', () => {
   it('同じ token の Invitation を二重作成すると拒否される', async () => {
     const user = await createTestUser('inv-token1')
@@ -241,7 +169,6 @@ describe('TC-MODEL-002: Invitation.token ユニーク制約', () => {
   })
 })
 
-// TC-MODEL-003: Session.sessionToken は一意
 describe('TC-MODEL-003: Session.sessionToken ユニーク制約', () => {
   it('同じ sessionToken の Session を二重作成すると拒否される', async () => {
     const user = await createTestUser('session-tok')
@@ -257,7 +184,6 @@ describe('TC-MODEL-003: Session.sessionToken ユニーク制約', () => {
   })
 })
 
-// TC-MODEL-004: ProjectMember(projectId, userId) 複合ユニーク (DATA-006 と同義)
 describe('TC-MODEL-004: ProjectMember 複合ユニーク', () => {
   it('重複 ProjectMember 作成が拒否される', async () => {
     const user = await createTestUser('model004')
@@ -268,7 +194,6 @@ describe('TC-MODEL-004: ProjectMember 複合ユニーク', () => {
   })
 })
 
-// TC-MODEL-005: VerificationToken(identifier, token) 複合ユニーク
 describe('TC-MODEL-005: VerificationToken 複合ユニーク', () => {
   it('同じ (identifier, token) の VerificationToken を二重作成すると拒否される', async () => {
     const data = {
@@ -281,39 +206,11 @@ describe('TC-MODEL-005: VerificationToken 複合ユニーク', () => {
   })
 })
 
-// TC-MODEL-006: Todo.weight の合計が 100 であることをアプリ層で保証 (createTodo経由で検証はStep5)
-// ここでは DB レベルで weight 制約がない(アプリ層のみ)ことを確認
-describe('TC-MODEL-006: Todo.weight 合計はアプリ層で管理される', () => {
-  it('DB 直接書き込みでは weight 制約がなく任意の値を設定できる', async () => {
-    const user = await createTestUser('model006')
-    const project = await createTestProject(user.id)
-    const milestone = await createTestMilestone(project.id)
-    const task = await createTestTask(milestone.id)
-    // DB 直接書き込みでは weight の合計チェックが存在しない
-    await expect(
-      prisma.todo.create({
-        data: {
-          taskId: task.id,
-          name: 'Unbalanced',
-          weight: 999,
-          completed: false,
-          startDate: new Date('2026-01-01'),
-          endDate: new Date('2026-01-31'),
-          order: 0,
-        },
-      }),
-    ).resolves.not.toBeNull()
-  })
-})
-
-// TC-MODEL-007: Task.startDate <= Task.endDate の制約(アプリ層バリデーション)
-// DB レベルでは制約がなく、アプリ層のみで制約することを確認
 describe('TC-MODEL-007: Task 日付バリデーションはアプリ層', () => {
   it('DB 直接書き込みでは startDate > endDate を許容する', async () => {
     const user = await createTestUser('model007')
     const project = await createTestProject(user.id)
     const milestone = await createTestMilestone(project.id)
-    // DB 直接書き込みでは startDate > endDate がエラーにならない
     await expect(
       prisma.task.create({
         data: {
