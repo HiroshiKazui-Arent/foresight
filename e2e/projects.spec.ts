@@ -31,12 +31,13 @@ test.describe('プロジェクト詳細', () => {
     await expect(page.getByText('開発フェーズ')).toBeVisible()
   })
 
-  test('「日報入力」リンクが表示される', async ({ page }) => {
+  test('「入力」ボタンが Task 行に表示される (v4.0)', async ({ page }) => {
     await page.goto('/projects')
     await page.getByText('フォーサイト開発プロジェクト(サンプル)').click()
     await page.waitForURL(/\/projects\/[a-z0-9]+$/)
 
-    await expect(page.getByRole('link', { name: '日報入力' })).toBeVisible()
+    // G1 ガント表示の Task 行に「入力」ボタン (進捗入力モーダルの Trigger) が描画される
+    await expect(page.getByRole('button', { name: '入力', exact: true }).first()).toBeVisible()
   })
 })
 
@@ -77,13 +78,6 @@ test.describe('新規プロジェクト作成', () => {
   })
 })
 
-// TC-A3-003: カードに進捗ピル / 状態ピル / 日数ピルが表示される
-test.describe('TC-A3-003: プロジェクトカードのピル表示', () => {
-  test('TC-A3-003: プロジェクト一覧のカードに進捗・状態・日数ピルが表示される', async ({
-    page,
-  }) => {
-    await page.goto('/projects')
-    // 進捗%表示 (x%) またはステータス表示が存在する
-    await expect(page.getByText(/完了|進行中|遅延|警告|予定/).first()).toBeVisible()
-  })
-})
+// TC-A3-003 (v3.x) はプロジェクトカードのピル表示を検証していたが、
+// v4.0 ではプロジェクト一覧カードにステータス/進捗ピルを表示しない仕様 (spec v4.0)。
+// → テスト撤去。G1 ガント表示画面でのステータスピル表示は v4-happy-path.spec.ts でカバー。
