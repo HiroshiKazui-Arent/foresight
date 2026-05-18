@@ -23,8 +23,6 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     <div>
       {/* G1 ガント表示 layout shell */}
       <G1PageClient
-        projectId={id}
-        projectName={project.name}
         projectStart={project.startDate}
         projectEnd={project.endDate}
         today={today}
@@ -32,10 +30,10 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         delaySummary={PLACEHOLDER_DELAY_SUMMARY}
       />
 
-      {/* 暫定: 既存 TreeView (S6 で G2 工程管理に置き換わるまで) */}
+      {/* 暫定: 既存 TreeView (S8 で G1 ガント表示完成時に削除) */}
       <div className="mt-8">
         <p className="mb-2 text-xs text-gray-400">
-          ※ 以下は v3.x TreeView (S6 で G2 工程管理に置き換え予定)
+          ※ 以下は v3.x TreeView (S8 で G1 ガント表示完成時に削除予定)
         </p>
         <TreeView project={project} today={today} mode="view" />
       </div>
