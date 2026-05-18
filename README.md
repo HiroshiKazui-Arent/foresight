@@ -1,36 +1,112 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# フォーサイトマネジメント (foresight)
 
-## Getting Started
+開発スケジュール管理ツール。「遅延を予兆段階で気づく」がビジョン。
 
-First, run the development server:
+仕様の単一情報源は [`docs/spec.md`](./docs/spec.md)、開発ガイドは [`CLAUDE.md`](./CLAUDE.md) を参照。
+
+## 必要環境
+
+- Node.js 20+
+- Docker / Docker Compose
+
+## セットアップ
+
+### 1. 依存インストール
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. 環境変数
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+`.env.example` を `.env` と `.env.local` の両方にコピーする。
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+cp .env.example .env
+cp .env.example .env.local
+```
 
-## Learn More
+`.env` は Docker Compose、`.env.local` は Next.js ホスト直接起動のときに使う（両方必要）。
 
-To learn more about Next.js, take a look at the following resources:
+### 3. PostgreSQL を起動
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+docker compose up -d postgres
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 4. DB マイグレーション
 
-## Deploy on Vercel
+```bash
+npm run db:migrate
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 5. シーダー実行（初期データ投入）
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run db:seed
+```
+
+投入される初期ユーザー:
+
+| メール              | パスワード    | 役割   |
+| ------------------- | ------------- | ------ |
+| `admin@example.com` | `password123` | 管理者 |
+| `pm@example.com`    | `password123` | PM     |
+
+サンプルのプロジェクト / マイルストーン / タスク / ToDo（v4.0 の 4 状態 + 未着手リスクのデモ）も合わせて作成される。
+
+シーダーは冪等ではないので、再投入したい場合は先に DB をリセットする:
+
+```bash
+npx prisma migrate reset   # マイグレーション + シード を再実行
+```
+
+## 開発サーバー起動
+
+### Docker Compose（推奨、postgres + app 両方）
+
+```bash
+docker compose up -d
+```
+
+### ホスト直接起動（postgres だけ Docker）
+
+```bash
+docker compose up -d postgres
+npm run dev
+```
+
+[http://localhost:3000](http://localhost:3000) を開いてアクセス。
+
+## よく使うコマンド
+
+### CI と等価のチェック（PR 前に必ず）
+
+```bash
+npm run lint        # ESLint
+npm run typecheck   # tsc --noEmit
+npm test            # Vitest（単体テスト）
+npm run build       # next build
+```
+
+### DB 操作
+
+```bash
+npm run db:migrate    # prisma migrate dev（スキーマ変更時）
+npm run db:push       # prisma db push（マイグレーション無しで反映、検証用）
+npm run db:seed       # 初期データ投入
+npm run db:studio     # Prisma Studio で DB を GUI 確認
+npm run db:generate   # Prisma Client 再生成
+```
+
+### E2E テスト
+
+```bash
+npm run e2e           # Playwright 実行
+npm run e2e:ui        # Playwright UI モード
+```
+
+## ドキュメント
+
+- [`docs/spec.md`](./docs/spec.md) — 仕様書（単一情報源、v4.0）
+- [`CLAUDE.md`](./CLAUDE.md) — Claude Code / 開発者向けガイド
