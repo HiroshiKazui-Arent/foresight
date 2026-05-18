@@ -16,6 +16,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Link href="/users" className="text-sm text-gray-600 hover:text-gray-900">
             ユーザー管理
           </Link>
+          <Link href="/todo-templates" className="text-sm text-gray-600 hover:text-gray-900">
+            テンプレート管理
+          </Link>
         </div>
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-600">{session.user?.name}</span>

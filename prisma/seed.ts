@@ -125,10 +125,10 @@ async function main() {
   // ──────────────────────────────────────────────
   const todoTemplates = [
     { name: '画面設計', order: 1 },
-    { name: 'データベース設計', order: 2 },
-    { name: 'バックエンド開発', order: 3 },
-    { name: 'フロントエンド開発', order: 4 },
-    { name: 'テスト', order: 5 },
+    { name: 'DB設計', order: 2 },
+    { name: 'BE開発', order: 3 },
+    { name: 'FE開発', order: 4 },
+    { name: 'レビュー', order: 5 },
   ]
   for (const t of todoTemplates) {
     await prisma.todoTemplate.upsert({

@@ -107,10 +107,10 @@ ToDo に重みカラムは持たない。Task/Milestone/Project レベルでの�
 
 ### 3.3 標準 ToDo
 
-Task 作成時、デフォルトで以下 5 件の ToDo が自動展開される(`TodoTemplate` モデル経由):
+Task 作成時、デフォルトで以下 5 件の ToDo が自動展開される(`TodoTemplate` モデル経由、`/todo-templates` 画面で編集可能):
 
 ```
-画面設計 → DB設計 → BE開発 → FE開発 → テスト
+画面設計 → DB設計 → BE開発 → FE開発 → レビュー
 ```
 
 直列スケジュールが基本だが、開始日 / 終了日は Task の期間内で自動配分(均等割り)し、ユーザーが編集できる。
@@ -267,7 +267,7 @@ Project 実績% = Σ(Milestone 実績% × Milestone 期間日数) / Σ(Milestone
 - 同階層追加ボタン(`+`)
 - 削除ボタン(`×`)
 
-タスク追加時は標準 ToDo 5 件を自動展開する。実績日(`actualStartDate` / `actualEndDate`)はこの画面では一切扱わない。
+タスク追加時は標準 ToDo 5 件を自動展開する(展開内容は `/todo-templates` で管理)。実績日(`actualStartDate` / `actualEndDate`)はこの画面では一切扱わない。
 
 ### 5.4 G3 進捗入力
 
@@ -442,7 +442,7 @@ v3.x と同じ。`compose.yaml`、`.github/workflows/ci.yml`、本番用 Dockerf
 | フェーズ          | 内容                                                   | 価値                             | 状態 / 期間目安 |
 | ----------------- | ------------------------------------------------------ | -------------------------------- | --------------- |
 | **Phase 0**       | ローカル開発環境整備(Docker / DB / Auth / CI)          | 開発を始められる土台             | ✅ 完了         |
-| **Phase 1**       | 認証 + 最低限の閲覧/入力(A1〜A5)+ G1/G2/G3 基本機能    | ログインして登録・進捗入力できる | 着手中(reset)   |
+| **Phase 1**       | 認証 + 最低限の閲覧/入力(A1〜A5)+ G1/G2/G3 基本機能    | ログインして登録・進捗入力できる | ✅ 完了 (v4.0)  |
 | Phase 2           | フィルター / サマリー / ドラッグ&ドロップ / 細部 UX    | 運用に耐える品質                 | 未着手          |
 | Phase 3           | 遅延サマリーの強化 / ボトルネック可視化                | 予兆検知の実用                   | 未着手          |
 | Phase 4           | AWS デプロイ(Terraform + ECS Fargate + RDS)            | 本番稼働                         | 未着手          |
@@ -517,7 +517,7 @@ v3.x と同じ。`/blueprint` → 各ステップを `/implement` で進める�
 - [x] **【v4.0】ステータスは 4 段階(完了 / 進行中 / 遅延 / 未着手)**
 - [x] **【v4.0】今日線は単純な現在日付マーカー(3 役を兼ねない)**
 - [x] **【v4.0】工程管理画面と進捗入力画面を分離(実績日は工程管理で扱わない)**
-- [x] **【v4.0】Task 作成時に標準 ToDo 5 件を自動展開**
+- [x] **【v4.0】Task 作成時に標準 ToDo 5 件を自動展開 (管理画面 /todo-templates で編集可)**
 
 ### 10.2 Pending(Phase 5 以降)
 
@@ -561,3 +561,4 @@ v3.x と同じ。`/blueprint` → 各ステップを `/implement` で進める�
 | 2026-05-14     | v3.2     | M-03: ToDo に `started` 追加、デュアルチェックボックス化。GanttBar 5 状態視覚化                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | 2026-05-15     | v3.3     | M-04: `RenderStatus` に `'ahead-of-schedule'` 追加(集約バーで前倒し進行中描画)                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | **2026-05-15** | **v4.0** | **大幅リセット。「バーで期間と進捗を同時に表現する」設計を破棄。バー=期間のみ、進捗=数値のみに方針転換。重み概念 / 今日線 3 役 / ahead-of-schedule / dual checkbox / 5 段階ステータス / -20% 閾値 / 連鎖予測 を全廃止。画面を A1〜A5 + G1(ガント表示) + G2(工程管理) + G3(進捗入力) に集約。ステータスは 4 段階。DB は `Todo.weight` / `started` / `startedAt` / `completedAt` / `completed` を削除し `actualStartDate` / `actualEndDate` を追加。`DailyReport` モデル廃止。新規 migration でリセット。詳細計画は `plans/spec-v4-reset.md`** |
+| 2026-05-18     | v4.0.1   | 5 件目『テスト』→『レビュー』、他 4 件も短縮形に統一 (DB設計/BE開発/FE開発)。TodoTemplate 編集画面 `/todo-templates` を追加 (CRUD + 上下並び替え)。既存 Task に展開済みの Todo は変更なし (独立レコードのため)。                                                                                                                                                                                                                                                                                                                             |
