@@ -1,42 +1,60 @@
 import { getProject } from '@/server/actions/project'
-import { requireProjectMember } from '@/lib/authz'
-import { TreeView } from '@/components/tree-view/tree-view'
-import { G1PageClient } from './g1-client'
-import type { ProjectSummary, DelaySummary } from '@/lib/summary'
-
-// S8 で実データから生成されるまでの placeholder 値
-const PLACEHOLDER_PROJECT_SUMMARY: ProjectSummary = { scheduledPct: 0, actualPct: 0 }
-const PLACEHOLDER_DELAY_SUMMARY: DelaySummary = {
-  delayedCount: 0,
-  maxDelayDays: 0,
-  notStartedRiskCount: 0,
-}
+import { GanttView } from '@/components/gantt/gantt-view'
+import {
+  buildGanttRows,
+  collectTaskRowsForDelaySummary,
+  type ProjectForGantt,
+} from '@/lib/gantt-rows'
+import { buildProjectSummary, buildDelaySummary } from '@/lib/summary'
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  await requireProjectMember(id)
-  const project = await getProject(id)
+  const project = await getProject(id) // 内部で requireProjectMember を呼ぶ
 
-  const today = new Date()
+  // today は UTC midnight に正規化する。
+  // Prisma の DateTime カラム (DB) は UTC midnight で保存されるため、
+  // サーバーのローカルタイムゾーンに依存しない比較ができるようにする。
+  const now = new Date()
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+
+  const projectForGantt: ProjectForGantt = {
+    startDate: project.startDate,
+    endDate: project.endDate,
+    milestones: project.milestones.map((m) => ({
+      id: m.id,
+      name: m.name,
+      startDate: m.startDate,
+      endDate: m.endDate,
+      tasks: m.tasks.map((t) => ({
+        id: t.id,
+        name: t.name,
+        startDate: t.startDate,
+        endDate: t.endDate,
+        todos: t.todos.map((td) => ({
+          id: td.id,
+          name: td.name,
+          startDate: td.startDate,
+          endDate: td.endDate,
+          actualStartDate: td.actualStartDate,
+          actualEndDate: td.actualEndDate,
+        })),
+      })),
+    })),
+  }
+
+  const rows = buildGanttRows(projectForGantt, today)
+  const projectSummary = buildProjectSummary(projectForGantt, today)
+  const delaySummary = buildDelaySummary(collectTaskRowsForDelaySummary(rows), today)
 
   return (
-    <div>
-      {/* G1 ガント表示 layout shell */}
-      <G1PageClient
-        projectStart={project.startDate}
-        projectEnd={project.endDate}
-        today={today}
-        projectSummary={PLACEHOLDER_PROJECT_SUMMARY}
-        delaySummary={PLACEHOLDER_DELAY_SUMMARY}
-      />
-
-      {/* 暫定: 既存 TreeView (S8 で G1 ガント表示完成時に削除) */}
-      <div className="mt-8">
-        <p className="mb-2 text-xs text-gray-400">
-          ※ 以下は v3.x TreeView (S8 で G1 ガント表示完成時に削除予定)
-        </p>
-        <TreeView project={project} today={today} mode="view" />
-      </div>
-    </div>
+    <GanttView
+      projectId={id}
+      projectStart={project.startDate}
+      projectEnd={project.endDate}
+      today={today}
+      rows={rows}
+      projectSummary={projectSummary}
+      delaySummary={delaySummary}
+    />
   )
 }
