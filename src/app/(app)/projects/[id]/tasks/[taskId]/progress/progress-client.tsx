@@ -19,9 +19,15 @@ interface ProgressClientProps {
   projectId: string
   taskName: string
   todos: TodoData[]
+  scheduledPct: number
 }
 
-export function ProgressClient({ projectId, taskName, todos: initialTodos }: ProgressClientProps) {
+export function ProgressClient({
+  projectId,
+  taskName,
+  todos: initialTodos,
+  scheduledPct,
+}: ProgressClientProps) {
   const [todos, setTodos] = useState<TodoData[]>(initialTodos)
 
   async function handleSave(
@@ -75,7 +81,11 @@ export function ProgressClient({ projectId, taskName, todos: initialTodos }: Pro
 
       {/* サイドパネル: タスクサマリー */}
       <aside className="lg:w-80">
-        <TaskProgressSummary completed={completedCount} total={todos.length} />
+        <TaskProgressSummary
+          completed={completedCount}
+          total={todos.length}
+          scheduledPct={scheduledPct}
+        />
         <Link
           href={`/projects/${projectId}`}
           className="mt-3 inline-flex w-full items-center justify-center rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-300"

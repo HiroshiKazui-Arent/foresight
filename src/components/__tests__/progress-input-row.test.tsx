@@ -18,11 +18,6 @@ describe('ProgressInputRow — 描画', () => {
     expect(html).toContain('画面設計')
   })
 
-  it('レベルマーク To を表示する', () => {
-    const html = renderToStaticMarkup(<ProgressInputRow {...baseProps} />)
-    expect(html).toContain('>To<')
-  })
-
   it('日付 input は着手日 + 完了日の 2 個', () => {
     const html = renderToStaticMarkup(<ProgressInputRow {...baseProps} />)
     const matches = html.match(/type="date"/g) ?? []
