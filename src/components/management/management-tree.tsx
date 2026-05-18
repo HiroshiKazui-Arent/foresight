@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import type { Milestone, Project, Task, Todo } from '@prisma/client'
 import { ManagementRow } from './management-row'
 import { EmptyStack } from './empty-stack'
@@ -30,6 +30,42 @@ export function ManagementTree({ project }: ManagementTreeProps) {
   const [projectEnd, setProjectEnd] = useState(project.endDate)
   const [pending, startTransition] = useTransition()
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  // 折り畳み状態: Set に入っている id は collapsed (空 = 全展開)
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set())
+  // 追加後スクロール先 id
+  const [pendingScrollId, setPendingScrollId] = useState<string | null>(null)
+
+  function toggleCollapse(id: string) {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function expand(id: string) {
+    setCollapsedIds((prev) => {
+      if (!prev.has(id)) return prev
+      const next = new Set(prev)
+      next.delete(id)
+      return next
+    })
+  }
+
+  useEffect(() => {
+    if (!pendingScrollId) return
+    // selector に id を直接 interpolation しないことで CSS selector injection を構造的に防ぐ
+    const el = Array.from(document.querySelectorAll<HTMLElement>('[data-row-id]')).find(
+      (node) => node.getAttribute('data-row-id') === pendingScrollId,
+    )
+    // 要素がまだ DOM に存在しなければ、次の milestones / collapsedIds 更新で再実行させる
+    if (!el) return
+    if (typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+    setPendingScrollId(null)
+  }, [pendingScrollId, milestones, collapsedIds])
 
   // Next.js の redirect() / notFound() は特殊な throw オブジェクトを投げる。
   // これを Error として扱わず再 throw することで RSC レイヤーが正しく navigation/404 を処理する。
@@ -83,6 +119,7 @@ export function ManagementTree({ project }: ManagementTreeProps) {
         const end = addDays(start, 7)
         const created = await createMilestone(project.id, '新規マイルストーン', start, end)
         setMilestones((prev) => [...prev, { ...created, tasks: [] }])
+        setPendingScrollId(created.id)
       } catch (e) {
         reportError(e)
       }
@@ -140,9 +177,11 @@ export function ManagementTree({ project }: ManagementTreeProps) {
         const end = addDays(start, 3)
         // createTask は TodoTemplate を自動展開した結果の todos を含めて返す
         const created = await createTask(milestoneId, project.id, '新規タスク', start, end)
+        expand(milestoneId)
         setMilestones((prev) =>
           prev.map((m) => (m.id === milestoneId ? { ...m, tasks: [...m.tasks, created] } : m)),
         )
+        setPendingScrollId(created.id)
       } catch (e) {
         reportError(e)
       }
@@ -224,6 +263,8 @@ export function ManagementTree({ project }: ManagementTreeProps) {
         const start = last ? last.endDate : task.startDate
         const end = addDays(start, 1)
         const created = await createTodo(taskId, project.id, '新規ToDo', start, end)
+        expand(milestoneId)
+        expand(taskId)
         setMilestones((prev) =>
           prev.map((m) =>
             m.id === milestoneId
@@ -236,6 +277,7 @@ export function ManagementTree({ project }: ManagementTreeProps) {
               : m,
           ),
         )
+        setPendingScrollId(created.id)
       } catch (e) {
         reportError(e)
       }
@@ -360,11 +402,13 @@ export function ManagementTree({ project }: ManagementTreeProps) {
         endDate={projectEnd}
         onUpdateName={handleProjectName}
         onUpdateDates={handleProjectDates}
+        expandable={false}
       />
 
       {milestones.map((m) => (
         <div key={m.id} className="flex flex-col gap-1">
           <ManagementRow
+            id={m.id}
             level="milestone"
             name={m.name}
             startDate={m.startDate}
@@ -373,44 +417,58 @@ export function ManagementTree({ project }: ManagementTreeProps) {
             onUpdateDates={(s, e) => handleUpdateMilestoneDates(m.id, s, e)}
             onAddSibling={() => handleAddMilestone()}
             onDelete={() => handleDeleteMilestone(m.id)}
+            expandable={true}
+            expanded={!collapsedIds.has(m.id)}
+            onToggle={() => toggleCollapse(m.id)}
           />
 
-          {m.tasks.map((t) => (
-            <div key={t.id} className="flex flex-col gap-1">
-              <ManagementRow
-                level="task"
-                name={t.name}
-                startDate={t.startDate}
-                endDate={t.endDate}
-                onUpdateName={(name) => handleUpdateTaskName(m.id, t.id, name)}
-                onUpdateDates={(s, e) => handleUpdateTaskDates(m.id, t.id, s, e)}
-                onAddSibling={() => handleAddTask(m.id)}
-                onDelete={() => handleDeleteTask(m.id, t.id)}
-              />
-
-              {t.todos.map((td) => (
+          {!collapsedIds.has(m.id) &&
+            m.tasks.map((t) => (
+              <div key={t.id} className="flex flex-col gap-1">
                 <ManagementRow
-                  key={td.id}
-                  level="todo"
-                  name={td.name}
-                  startDate={td.startDate}
-                  endDate={td.endDate}
-                  onUpdateName={(name) => handleUpdateTodoName(m.id, t.id, td.id, name)}
-                  onUpdateDates={(s, e) => handleUpdateTodoDates(m.id, t.id, td.id, s, e)}
-                  onAddSibling={() => handleAddTodo(m.id, t.id)}
-                  onDelete={() => handleDeleteTodo(m.id, t.id, td.id)}
+                  id={t.id}
+                  level="task"
+                  name={t.name}
+                  startDate={t.startDate}
+                  endDate={t.endDate}
+                  onUpdateName={(name) => handleUpdateTaskName(m.id, t.id, name)}
+                  onUpdateDates={(s, e) => handleUpdateTaskDates(m.id, t.id, s, e)}
+                  onAddSibling={() => handleAddTask(m.id)}
+                  onDelete={() => handleDeleteTask(m.id, t.id)}
+                  expandable={true}
+                  expanded={!collapsedIds.has(t.id)}
+                  onToggle={() => toggleCollapse(t.id)}
                 />
-              ))}
 
-              {t.todos.length === 0 && (
-                <div style={{ marginLeft: '108px' }}>
-                  <EmptyStack label="同階層のToDoを追加" onAdd={() => handleAddTodo(m.id, t.id)} />
-                </div>
-              )}
-            </div>
-          ))}
+                {!collapsedIds.has(t.id) &&
+                  t.todos.map((td) => (
+                    <ManagementRow
+                      key={td.id}
+                      id={td.id}
+                      level="todo"
+                      name={td.name}
+                      startDate={td.startDate}
+                      endDate={td.endDate}
+                      onUpdateName={(name) => handleUpdateTodoName(m.id, t.id, td.id, name)}
+                      onUpdateDates={(s, e) => handleUpdateTodoDates(m.id, t.id, td.id, s, e)}
+                      onAddSibling={() => handleAddTodo(m.id, t.id)}
+                      onDelete={() => handleDeleteTodo(m.id, t.id, td.id)}
+                      expandable={false}
+                    />
+                  ))}
 
-          {m.tasks.length === 0 && (
+                {!collapsedIds.has(t.id) && t.todos.length === 0 && (
+                  <div style={{ marginLeft: '108px' }}>
+                    <EmptyStack
+                      label="同階層のToDoを追加"
+                      onAdd={() => handleAddTodo(m.id, t.id)}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
+
+          {!collapsedIds.has(m.id) && m.tasks.length === 0 && (
             <div style={{ marginLeft: '72px' }}>
               <EmptyStack label="同階層のタスクを追加" onAdd={() => handleAddTask(m.id)} />
             </div>

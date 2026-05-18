@@ -34,6 +34,11 @@ interface ManagementRowProps {
   onUpdateDates: (startDate: Date, endDate: Date) => void | Promise<void>
   onAddSibling?: () => void | Promise<void>
   onDelete?: () => void | Promise<void>
+  // 折り畳みトグル用 props
+  id?: string
+  expandable?: boolean
+  expanded?: boolean
+  onToggle?: () => void
 }
 
 // 日付は UTC で取り扱う。
@@ -64,6 +69,10 @@ export function ManagementRow({
   onUpdateDates,
   onAddSibling,
   onDelete,
+  id,
+  expandable = false,
+  expanded = true,
+  onToggle,
 }: ManagementRowProps) {
   const indent = LEVEL_INDENT[level]
   const [nameDraft, setNameDraft] = useState(name)
@@ -124,9 +133,23 @@ export function ManagementRow({
   return (
     <div
       data-indent={indent}
-      className="flex items-center gap-2 rounded border border-gray-200 bg-white px-2 py-1.5 text-sm shadow-sm"
+      data-row-id={id}
+      className="flex items-center gap-2 rounded border border-gray-200 bg-white px-2 py-1.5 text-sm shadow-sm transition-colors hover:border-blue-400 hover:bg-blue-50"
       style={{ marginLeft: `${indent * 36}px` }}
     >
+      {expandable ? (
+        <button
+          type="button"
+          aria-label={expanded ? '折り畳む' : '展開する'}
+          aria-expanded={expanded}
+          onClick={onToggle}
+          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+        >
+          {expanded ? '▼' : '▶'}
+        </button>
+      ) : (
+        <span className="inline-block h-5 w-5 shrink-0" aria-hidden />
+      )}
       <span
         aria-label={`レベル: ${level}`}
         className={`inline-flex h-6 w-7 shrink-0 items-center justify-center rounded text-xs font-semibold ${LEVEL_MARK_COLOR[level]}`}
