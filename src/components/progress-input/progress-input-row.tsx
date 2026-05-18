@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { formatScheduledPeriod } from '@/lib/date-utils'
 
 interface ProgressInputRowProps {
   todoId: string
@@ -46,6 +47,8 @@ function isNextNavigationError(e: unknown): boolean {
 export function ProgressInputRow({
   todoId,
   name,
+  scheduledStartDate,
+  scheduledEndDate,
   actualStartDate,
   actualEndDate,
   onSave,
@@ -121,53 +124,49 @@ export function ProgressInputRow({
     <div
       data-todo-id={todoId}
       aria-busy={saving}
-      className="flex items-center gap-2 rounded border border-gray-200 bg-white px-2 py-1.5 text-sm shadow-sm"
+      className="rounded border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm"
     >
-      <span
-        aria-label="レベル: todo"
-        className="inline-flex h-6 w-7 shrink-0 items-center justify-center rounded bg-slate-100 text-xs font-semibold text-slate-600"
-      >
-        To
-      </span>
+      {/* ToDo 名 */}
+      <p className="mb-1 font-medium text-gray-800">{name}</p>
 
-      <input
-        type="text"
-        readOnly
-        aria-label="ToDo 名"
-        value={name}
-        className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-2 py-1 text-gray-700"
-      />
+      {/* 予定期間 */}
+      <p aria-label="予定期間" className="mb-1.5 text-xs text-gray-400">
+        {formatScheduledPeriod(scheduledStartDate, scheduledEndDate)}
+      </p>
 
-      <input
-        type="date"
-        aria-label="着手日"
-        value={startDraft}
-        onChange={(e) => setStartDraft(e.target.value)}
-        onBlur={onStartBlur}
-        disabled={saving}
-        className="rounded border border-gray-300 px-1 py-0.5 text-xs focus:border-blue-500 focus:outline-none disabled:bg-gray-50"
-      />
+      {/* 着手日 + 完了日 + 進捗バッジ (折り返し禁止) */}
+      <div className="flex items-center gap-2">
+        <input
+          type="date"
+          aria-label="着手日"
+          value={startDraft}
+          onChange={(e) => setStartDraft(e.target.value)}
+          onBlur={onStartBlur}
+          disabled={saving}
+          className="shrink-0 rounded border border-gray-300 px-1 py-0.5 text-xs focus:border-blue-500 focus:outline-none disabled:bg-gray-50"
+        />
 
-      <input
-        type="date"
-        aria-label="完了日"
-        value={endDraft}
-        onChange={(e) => setEndDraft(e.target.value)}
-        onBlur={onEndBlur}
-        disabled={saving}
-        className="rounded border border-gray-300 px-1 py-0.5 text-xs focus:border-blue-500 focus:outline-none disabled:bg-gray-50"
-      />
+        <input
+          type="date"
+          aria-label="完了日"
+          value={endDraft}
+          onChange={(e) => setEndDraft(e.target.value)}
+          onBlur={onEndBlur}
+          disabled={saving}
+          className="shrink-0 rounded border border-gray-300 px-1 py-0.5 text-xs focus:border-blue-500 focus:outline-none disabled:bg-gray-50"
+        />
 
-      <span
-        className={`inline-flex h-6 w-12 shrink-0 items-center justify-center rounded text-xs font-semibold ${badgeClass}`}
-      >
-        {progressBadge}
-      </span>
+        <span
+          className={`inline-flex h-6 w-12 shrink-0 items-center justify-center rounded text-xs font-semibold ${badgeClass}`}
+        >
+          {progressBadge}
+        </span>
+      </div>
 
       {error && (
-        <span role="alert" className="text-xs text-red-600">
+        <p role="alert" className="mt-1 text-xs text-red-600">
           {error}
-        </span>
+        </p>
       )}
     </div>
   )

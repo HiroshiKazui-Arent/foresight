@@ -1,13 +1,14 @@
 interface TaskProgressSummaryProps {
   completed: number
   total: number
+  scheduledPct: number
 }
 
 /**
  * G3 進捗入力画面右側のタスク集計サマリー
  * spec v4.0 4.1: Task 実績% = 完了 ToDo 数 / 全 ToDo 数 × 100
  */
-export function TaskProgressSummary({ completed, total }: TaskProgressSummaryProps) {
+export function TaskProgressSummary({ completed, total, scheduledPct }: TaskProgressSummaryProps) {
   // ゼロ除算回避 (ToDo が 1 件もない Task のエッジケース)
   const pct = total === 0 ? 0 : Math.round((completed / total) * 100)
   const isFull = total > 0 && completed === total
@@ -24,8 +25,12 @@ export function TaskProgressSummary({ completed, total }: TaskProgressSummaryPro
           </div>
         </div>
         <div className="rounded bg-gray-50 px-3 py-2">
-          <div className="text-xs text-gray-500">実績進捗</div>
-          <div className={`text-xl font-bold ${pctColor}`}>{pct}%</div>
+          <div className="text-xs text-gray-500">実績 / 予定</div>
+          <div className="text-xl font-bold">
+            <span className={pctColor}>{pct}%</span>
+            <span className="font-normal text-gray-400"> / </span>
+            <span className="text-gray-800">{Math.round(scheduledPct)}%</span>
+          </div>
         </div>
       </div>
       <ul className="space-y-1 text-xs text-gray-500">
