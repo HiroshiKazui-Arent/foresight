@@ -71,10 +71,10 @@ describe('createTask (v4.0: TodoTemplate 自動展開、重み概念なし)', ()
   it('TodoTemplate が 5 件あれば、Task 作成時に 5 件の ToDo を order 順に展開する', async () => {
     mockPrisma.todoTemplate.findMany.mockResolvedValue([
       { id: 't1', name: '画面設計', order: 1 },
-      { id: 't2', name: 'データベース設計', order: 2 },
-      { id: 't3', name: 'バックエンド開発', order: 3 },
-      { id: 't4', name: 'フロントエンド開発', order: 4 },
-      { id: 't5', name: 'テスト', order: 5 },
+      { id: 't2', name: 'DB設計', order: 2 },
+      { id: 't3', name: 'BE開発', order: 3 },
+      { id: 't4', name: 'FE開発', order: 4 },
+      { id: 't5', name: 'レビュー', order: 5 },
     ])
 
     await createTask(milestoneId, projectId, name, startDate, endDate)
@@ -87,13 +87,7 @@ describe('createTask (v4.0: TodoTemplate 自動展開、重み概念なし)', ()
     const createManyArg = mockPrisma.todo.createManyAndReturn.mock.calls[0][0]
     expect(createManyArg.data).toHaveLength(5)
     const names = createManyArg.data.map((d: { name: string }) => d.name)
-    expect(names).toEqual([
-      '画面設計',
-      'データベース設計',
-      'バックエンド開発',
-      'フロントエンド開発',
-      'テスト',
-    ])
+    expect(names).toEqual(['画面設計', 'DB設計', 'BE開発', 'FE開発', 'レビュー'])
     const orders = createManyArg.data.map((d: { order: number }) => d.order)
     expect(orders).toEqual([0, 1, 2, 3, 4])
   })
