@@ -4,7 +4,9 @@ import { revalidatePath } from 'next/cache'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { requireProjectMember } from '@/lib/authz'
-import type { Task } from '@prisma/client'
+import type { Task, Todo } from '@prisma/client'
+
+export type TaskWithTodos = Task & { todos: Todo[] }
 
 function validateName(name: string) {
   if (!name.trim() || name.trim().length > 255)
@@ -24,7 +26,7 @@ export async function createTask(
   name: string,
   startDate: Date,
   endDate: Date,
-): Promise<Task> {
+): Promise<TaskWithTodos> {
   await requireProjectMember(projectId)
   validateName(name)
   validateDates(startDate, endDate)
@@ -40,8 +42,10 @@ export async function createTask(
     })
 
     const templates = await tx.todoTemplate.findMany({ orderBy: { order: 'asc' } })
+    let todos: Todo[] = []
     if (templates.length > 0) {
-      await tx.todo.createMany({
+      // createManyAndReturn (Prisma 5.14+) で 1 ラウンドトリップで生成+取得
+      todos = await tx.todo.createManyAndReturn({
         data: templates.map((tpl, i) => ({
           taskId: created.id,
           name: tpl.name,
@@ -50,9 +54,11 @@ export async function createTask(
           order: i,
         })),
       })
+      // createManyAndReturn は order を保証しないため明示的にソート (G2 表示順)
+      todos.sort((a, b) => a.order - b.order)
     }
 
-    return created
+    return { ...created, todos }
   })
 
   revalidatePath('/projects/' + projectId, 'layout')
@@ -77,9 +83,19 @@ export async function updateTask(
     if (!member) throw new Error('Forbidden')
   }
 
+  if (data.startDate !== undefined || data.endDate !== undefined) {
+    validateDates(data.startDate ?? existing.startDate, data.endDate ?? existing.endDate)
+  }
+
+  // mass-assignment 防止: 許可フィールドのみを明示的に渡す (updateTodo と同パターン)
   const task = await prisma.task.update({
     where: { id },
-    data: { ...data, name: data.name?.trim() },
+    data: {
+      ...(data.name !== undefined ? { name: data.name.trim() } : {}),
+      ...(data.startDate !== undefined ? { startDate: data.startDate } : {}),
+      ...(data.endDate !== undefined ? { endDate: data.endDate } : {}),
+      ...(data.assigneeId !== undefined ? { assigneeId: data.assigneeId } : {}),
+    },
   })
 
   revalidatePath('/projects/' + projectId, 'layout')
